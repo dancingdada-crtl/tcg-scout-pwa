@@ -1,0 +1,12 @@
+{
+  "name": "TCG Scout",
+  "short_name": "TCG Scout",
+  "description": "Private local TCG restock, price and trend tracker.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#101314",
+  "theme_color": "#101314",
+  "icons": [
+    {"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
+}
