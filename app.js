@@ -1,5 +1,5 @@
 import { GEOAPIFY_API_KEY } from './geoapify-config.js';
-import { backendConfigured, getAuthSession, onAuthStateChange, sendMagicLink, signOut as backendSignOut, recordLogin, recordSession, loadSharedData, createReport, createStore, setStoreArchived, createProduct, setProductArchived, saveAnalytics as backendSaveAnalytics, uploadProfileImage, updateMyProfile, uploadBrandIcon, updateBranding, updateRankingTiers, setMemberEnabled, setReportFeedback, subscribeRealtime } from './backend.js';
+import { backendConfigured, getAuthSession, onAuthStateChange, sendMagicLink, signInWithPassword, signOut as backendSignOut, recordLogin, recordSession, loadSharedData, createReport, createStore, setStoreArchived, createProduct, setProductArchived, saveAnalytics as backendSaveAnalytics, uploadProfileImage, updateMyProfile, uploadBrandIcon, updateBranding, updateRankingTiers, setMemberEnabled, setReportFeedback, subscribeRealtime } from './backend.js';
 
 const KEY='tcg-scout-v1-data';
 const iso=(d=new Date())=>d.toISOString();
@@ -86,7 +86,7 @@ function applyBranding(){document.title=appName();const meta=document.querySelec
 
 function loginView(){
  if(!backendConfigured)return `<div class="login"><div class="login-card">${localBrandIcon('large')}<h1>Supabase setup needed</h1><p>V1.3 is ready, but this build still needs your Supabase Project URL and publishable/anon key in <b>supabase-config.js</b>.</p><div class="demo-note">Never use the service_role/secret key in this file.</div></div></div>`;
- return `<div class="login"><div class="login-card">${data.settings?.appIcon?`<img class="brand-icon large" src="${data.settings.appIcon}" alt="ChaseDex">`:localBrandIcon('large')}<h1>${esc(appName())}</h1><p>Fast local restock, price and activity intelligence for your group.</p>${loginNotice?`<div class="login-notice">${esc(loginNotice)}</div>`:''}<div class="field"><label>Email</label><input id="email" type="email" value="${esc(pendingEmail)}" placeholder="you@example.com" autocomplete="email"></div>${(()=>{const n=magicCooldownSeconds();return `<button class="btn wide" data-action="magic-login" ${n?'disabled':''}>${n?`Try again in ${n}s`:'Email me a magic link'}</button>`})()}<button class="btn secondary wide" data-action="public-view">Continue as Public Viewer</button><div class="demo-note">Member signup is invite-only. Existing approved members can request a magic link.</div></div></div>`}
+ return `<div class="login"><div class="login-card">${data.settings?.appIcon?`<img class="brand-icon large" src="${data.settings.appIcon}" alt="ChaseDex">`:localBrandIcon('large')}<h1>${esc(appName())}</h1><p>Fast local restock, price and activity intelligence for your group.</p>${loginNotice?`<div class="login-notice">${esc(loginNotice)}</div>`:''}<div class="field"><label>Email</label><input id="email" type="email" value="${esc(pendingEmail)}" placeholder="you@example.com" autocomplete="email"></div><div class="field"><label>Password</label><input id="password" type="password" placeholder="Your password" autocomplete="current-password"></div><button class="btn wide" data-action="password-login">Sign in</button><div class="login-divider"><span>or</span></div>${(()=>{const n=magicCooldownSeconds();return `<button class="btn secondary wide" data-action="magic-login" ${n?'disabled':''}>${n?`Try magic link again in ${n}s`:'Email me a magic link'}</button>`})()}<button class="btn secondary wide" data-action="public-view">Continue as Public Viewer</button><div class="demo-note">Member signup is invite-only. Use your password for normal sign-in. Magic Link remains available for first-time access or recovery.</div></div></div>`}
 
 function topbar(){const m=currentMember();const who=m?`${esc(m.name)} · ${m.role==='admin'?'Admin':'Member'}`:'Public Viewer';return `<header class="topbar"><div class="brandrow"><div class="brand">${data.settings?.appIcon?`<img class="brand-icon" src="${data.settings.appIcon}" alt="ChaseDex">`:localBrandIcon()}<div><div class="title">${esc(appName())}</div><div class="subtitle">${who}</div></div></div><div class="top-actions"><button class="pill" data-action="share-app">Share</button><button class="pill" data-action="logout">${m?'Sign out':'Sign in'}</button></div></div></header>`}
 
@@ -166,6 +166,17 @@ function scheduleRefresh(){clearTimeout(refreshTimer);refreshTimer=setTimeout(()
 document.addEventListener('click',async e=>{
  const el=e.target.closest('[data-action]');if(!el)return;const a=el.dataset.action;
  try{
+  if(a==='password-login'){
+   const email=document.getElementById('email')?.value.trim();const password=document.getElementById('password')?.value||'';
+   if(!email||!password){loginNotice='Enter your email and password.';render();return}
+   pendingEmail=email;loginNotice='Signing in…';render();
+   try{
+    const session=await signInWithPassword(email,password);
+    if(!session)throw new Error('Sign-in did not return a session.');
+    authSession=session;viewerMode=false;loginNotice='';await recordLogin();await refreshShared({quiet:true});state.view='home';state.sheet=null;render();
+   }catch(err){console.error(err);loginNotice=String(err?.message||'Could not sign in. Check your email and password.');render()}
+   return;
+  }
   if(a==='magic-login'){
    const email=document.getElementById('email')?.value.trim();if(!email){loginNotice='Enter your email.';render();return}
    const wait=magicCooldownSeconds();if(wait){loginNotice=`Please wait ${wait} second${wait===1?'':'s'} before requesting another magic link.`;render();return}

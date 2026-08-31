@@ -20,3 +20,7 @@
 
 /* V1.3.3 automatic store/address lookup */
 .store-lookup{position:relative}.lookup-results{position:absolute;left:0;right:0;top:72px;z-index:120;background:#101722;border:1px solid rgba(255,255,255,.14);border-radius:14px;overflow:hidden;box-shadow:0 18px 40px rgba(0,0,0,.42);max-height:280px;overflow-y:auto}.lookup-result{display:block;width:100%;text-align:left;padding:12px 14px;border:0;border-bottom:1px solid rgba(255,255,255,.08);background:transparent;color:inherit}.lookup-result:last-child{border-bottom:0}.lookup-result:active,.lookup-result:hover{background:rgba(73,220,255,.09)}.lookup-result b,.lookup-result small{display:block}.lookup-result small{margin-top:3px;opacity:.72;line-height:1.25}.lookup-empty{padding:13px 14px;font-size:.86rem;opacity:.78}.lookup-setup{padding:12px 14px;margin:8px 0 14px;border:1px dashed rgba(255,255,255,.2);border-radius:14px;font-size:.86rem;line-height:1.35;opacity:.85}
+
+.login-divider{display:flex;align-items:center;gap:12px;margin:14px 0;color:var(--muted,#9aa7ad);font-size:.85rem}
+.login-divider:before,.login-divider:after{content:"";height:1px;flex:1;background:rgba(255,255,255,.12)}
+.login-divider span{padding:0 4px}
