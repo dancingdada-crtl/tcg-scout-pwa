@@ -57,7 +57,13 @@ function load(){try{return migrate(JSON.parse(localStorage.getItem(KEY))||seed()
 let data=load();
 let state={view:'home',sheet:null,selectedStore:null,activityStore:'All',activityMetric:'stock',analytics:{metric:'stock',tcg:'All',productId:'All',storeId:'All',period:'All',range:30,groupBy:'day'},toast:null};
 function save(){localStorage.setItem(KEY,JSON.stringify(data))}
-let authSession=null;let viewerMode=false;let appReady=false;let realtimeChannel=null;let refreshTimer=null;let loginNotice='';let pendingEmail='';
+let authSession=null;let viewerMode=false;let appReady=false;let realtimeChannel=null;let refreshTimer=null;let loginNotice='';let pendingEmail='';let magicCooldownUntil=0;let magicCooldownTimer=null;
+function localBrandIcon(sizeClass=''){return `<img class="brand-icon${sizeClass?' '+sizeClass:''}" src="./icon-192.png" alt="ChaseDex">`}
+function magicCooldownSeconds(){return Math.max(0,Math.ceil((magicCooldownUntil-Date.now())/1000))}
+function startMagicCooldown(seconds){
+ magicCooldownUntil=Date.now()+Math.max(1,Number(seconds)||30)*1000;clearInterval(magicCooldownTimer);
+ magicCooldownTimer=setInterval(()=>{if(!magicCooldownSeconds()){clearInterval(magicCooldownTimer);magicCooldownTimer=null;loginNotice='You can request another magic link now.'}render()},1000);
+}
 function currentMember(){return authSession?data.members.find(m=>m.id===authSession.user.id)||null:null}
 function isMember(){return !!currentMember()}
 function isViewer(){return viewerMode&&!authSession}
@@ -79,10 +85,10 @@ function avatar(m,cls='avatar'){return m?.avatar?`<img class="${cls}" src="${m.a
 function applyBranding(){document.title=appName();const meta=document.querySelector('meta[name="application-name"]');if(meta)meta.content=appName()}
 
 function loginView(){
- if(!backendConfigured)return `<div class="login"><div class="login-card"><div class="logo">TCG</div><h1>Supabase setup needed</h1><p>V1.3 is ready, but this build still needs your Supabase Project URL and publishable/anon key in <b>supabase-config.js</b>.</p><div class="demo-note">Never use the service_role/secret key in this file.</div></div></div>`;
- return `<div class="login"><div class="login-card">${data.settings?.appIcon?`<img class="brand-icon large" src="${data.settings.appIcon}" alt="">`:'<div class="logo">TCG</div>'}<h1>${esc(appName())}</h1><p>Fast local restock, price and activity intelligence for your group.</p>${loginNotice?`<div class="login-notice">${esc(loginNotice)}</div>`:''}<div class="field"><label>Email</label><input id="email" type="email" value="${esc(pendingEmail)}" placeholder="you@example.com" autocomplete="email"></div><button class="btn wide" data-action="magic-login">Email me a magic link</button><button class="btn secondary wide" data-action="public-view">Continue as Public Viewer</button><div class="demo-note">Member signup is invite-only. Existing approved members can request a magic link.</div></div></div>`}
+ if(!backendConfigured)return `<div class="login"><div class="login-card">${localBrandIcon('large')}<h1>Supabase setup needed</h1><p>V1.3 is ready, but this build still needs your Supabase Project URL and publishable/anon key in <b>supabase-config.js</b>.</p><div class="demo-note">Never use the service_role/secret key in this file.</div></div></div>`;
+ return `<div class="login"><div class="login-card">${data.settings?.appIcon?`<img class="brand-icon large" src="${data.settings.appIcon}" alt="ChaseDex">`:localBrandIcon('large')}<h1>${esc(appName())}</h1><p>Fast local restock, price and activity intelligence for your group.</p>${loginNotice?`<div class="login-notice">${esc(loginNotice)}</div>`:''}<div class="field"><label>Email</label><input id="email" type="email" value="${esc(pendingEmail)}" placeholder="you@example.com" autocomplete="email"></div>${(()=>{const n=magicCooldownSeconds();return `<button class="btn wide" data-action="magic-login" ${n?'disabled':''}>${n?`Try again in ${n}s`:'Email me a magic link'}</button>`})()}<button class="btn secondary wide" data-action="public-view">Continue as Public Viewer</button><div class="demo-note">Member signup is invite-only. Existing approved members can request a magic link.</div></div></div>`}
 
-function topbar(){const m=currentMember();const who=m?`${esc(m.name)} · ${m.role==='admin'?'Admin':'Member'}`:'Public Viewer';return `<header class="topbar"><div class="brandrow"><div class="brand">${data.settings?.appIcon?`<img class="brand-icon" src="${data.settings.appIcon}" alt="">`:'<div class="logo">TCG</div>'}<div><div class="title">${esc(appName())}</div><div class="subtitle">${who}</div></div></div><div class="top-actions"><button class="pill" data-action="share-app">Share</button><button class="pill" data-action="logout">${m?'Sign out':'Sign in'}</button></div></div></header>`}
+function topbar(){const m=currentMember();const who=m?`${esc(m.name)} · ${m.role==='admin'?'Admin':'Member'}`:'Public Viewer';return `<header class="topbar"><div class="brandrow"><div class="brand">${data.settings?.appIcon?`<img class="brand-icon" src="${data.settings.appIcon}" alt="ChaseDex">`:localBrandIcon()}<div><div class="title">${esc(appName())}</div><div class="subtitle">${who}</div></div></div><div class="top-actions"><button class="pill" data-action="share-app">Share</button><button class="pill" data-action="logout">${m?'Sign out':'Sign in'}</button></div></div></header>`}
 
 function nav(){const items=[['home','🗺️','Map'],['activity','▥','Activity'],['analytics','⌁','Analytics'],['products','◫','Products']];if(isMember())items.push(['members','👥','Members']);if(currentMember()?.role==='admin')items.push(['admin','⚙','Admin']);return `<nav class="bottom-nav" style="grid-template-columns:repeat(${items.length},1fr)">${items.map(([v,i,l])=>`<button class="nav-btn ${state.view===v?'active':''}" data-action="nav" data-view="${v}"><span>${i}</span>${l}</button>`).join('')}</nav>`}
 
@@ -140,7 +146,7 @@ async function shareStore(storeId){const s=data.stores.find(x=>x.id===storeId),r
 async function shareReport(id){const r=data.reports.find(x=>x.id===id),s=data.stores.find(x=>x.id===r.storeId);const text=`ChaseDex — ${s?.name}: ${statusMeta[r.status]?.label||'Update'} ${reportFlags(r)} · ${r.period} · ${fmtTime(r.occurredAt)}.`;const url=location.href.split('#')[0]+'#report='+encodeURIComponent(id);if(navigator.share){try{await navigator.share({title:'ChaseDex report',text,url});return}catch{}}location.href='sms:?&body='+encodeURIComponent(`${text} ${url}`)}
 function openSearch(q){window.open('https://www.google.com/search?q='+encodeURIComponent(q),'_blank','noopener')}
 
-function loadingView(){return `<div class="login"><div class="login-card"><div class="logo">TCG</div><h1>${esc(appName())}</h1><p>Loading shared scout data…</p></div></div>`}
+function loadingView(){return `<div class="login"><div class="login-card">${localBrandIcon('large')}<h1>${esc(appName())}</h1><p>Loading shared scout data…</p></div></div>`}
 function render(){
  const root=document.getElementById('app');
  if(!appReady){root.innerHTML=loadingView();return;}
@@ -162,8 +168,17 @@ document.addEventListener('click',async e=>{
  try{
   if(a==='magic-login'){
    const email=document.getElementById('email')?.value.trim();if(!email){loginNotice='Enter your email.';render();return}
+   const wait=magicCooldownSeconds();if(wait){loginNotice=`Please wait ${wait} second${wait===1?'':'s'} before requesting another magic link.`;render();return}
    pendingEmail=email;loginNotice='Sending magic link…';render();
-   await sendMagicLink(email);loginNotice='Magic link sent. Open the newest email on this device.';render();return;
+   try{
+    await sendMagicLink(email);loginNotice='Magic link sent. Open the newest email on this device.';startMagicCooldown(60);render();
+   }catch(err){
+    console.error(err);const msg=String(err?.message||'');const match=msg.match(/after\s+(\d+)\s+seconds?/i);const seconds=match?Number(match[1]):(err?.status===429?30:0);
+    if(seconds){loginNotice=`Please wait ${seconds} second${seconds===1?'':'s'} before requesting another magic link.`;startMagicCooldown(seconds)}
+    else loginNotice=msg||'Could not send magic link. Please try again.';
+    render();
+   }
+   return;
   }
   if(a==='public-view'){viewerMode=true;state.view='home';await refreshShared();return}
   if(a==='logout'){
