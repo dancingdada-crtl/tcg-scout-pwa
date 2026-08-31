@@ -1,5 +1,5 @@
 import { GEOAPIFY_API_KEY } from './geoapify-config.js';
-import { backendConfigured, getAuthSession, onAuthStateChange, sendMagicLink, signInWithPassword, signOut as backendSignOut, recordLogin, recordSession, loadSharedData, createReport, createStore, setStoreArchived, createProduct, setProductArchived, saveAnalytics as backendSaveAnalytics, uploadProfileImage, updateMyProfile, uploadBrandIcon, updateBranding, updateRankingTiers, setMemberEnabled, setReportFeedback, subscribeRealtime } from './backend.js';
+import { backendConfigured, getAuthSession, onAuthStateChange, sendMagicLink, signInWithPassword, updatePassword, signOut as backendSignOut, recordLogin, recordSession, loadSharedData, createReport, createStore, setStoreArchived, createProduct, setProductArchived, saveAnalytics as backendSaveAnalytics, uploadProfileImage, updateMyProfile, uploadBrandIcon, updateBranding, updateRankingTiers, setMemberEnabled, setReportFeedback, subscribeRealtime } from './backend.js';
 
 const KEY='tcg-scout-v1-data';
 const iso=(d=new Date())=>d.toISOString();
@@ -138,7 +138,7 @@ function reportDetailSheet(id){const r=data.reports.find(x=>x.id===id);if(!r)ret
 function membersSheet(){return `<div class="sheet"><div class="sheet-card"><div class="sheet-title"><h2>Members</h2><button class="close" data-action="close-sheet">×</button></div>${data.members.map(m=>`<div class="trend-row"><div><b>${esc(m.name)}</b><div class="tiny">${esc(m.email||'')} · ${m.role}${m.enabled===false?' · Disabled':''}</div></div>${m.role==='admin'?'<span class="badge">Owner</span>':m.enabled===false?`<button class="chip" data-action="enable-member" data-id="${m.id}">Restore</button>`:`<button class="chip" data-action="remove-member" data-id="${m.id}">Disable</button>`}</div>`).join('')}<div class="field"><label>Invite by email</label><input id="invite-email" type="email" placeholder="friend@example.com"></div><button class="btn wide" data-action="invite-member">Copy invite instructions</button><div class="tiny" style="margin-top:8px">For launch, new auth users are invited from Supabase Authentication → Users. This keeps the service-role key out of the PWA.</div></div></div>`}
 
 
-function profileSheet(){const m=currentMember();return `<div class="sheet"><div class="sheet-card"><div class="sheet-title"><h2>Edit my profile</h2><button class="close" data-action="close-sheet">×</button></div><div class="profile-preview">${avatar(m,'avatar large-avatar')}<div><b>${esc(m.name)}</b><small>${esc(rankTitle(m))} · ${pointsFor(m)} points</small></div></div><div class="field"><label>Username</label><input id="profile-name" value="${esc(m.name)}" maxlength="30"></div><div class="field"><label>Profile picture</label><input id="profile-avatar" type="file" accept="image/*"></div><button class="btn wide" data-action="save-profile">Save profile</button><div class="tiny" style="margin-top:8px">Profile pictures are shared through Supabase Storage.</div></div></div>`}
+function profileSheet(){const m=currentMember();return `<div class="sheet"><div class="sheet-card"><div class="sheet-title"><h2>Edit my profile</h2><button class="close" data-action="close-sheet">×</button></div><div class="profile-preview">${avatar(m,'avatar large-avatar')}<div><b>${esc(m.name)}</b><small>${esc(rankTitle(m))} · ${pointsFor(m)} points</small></div></div><div class="field"><label>Username</label><input id="profile-name" value="${esc(m.name)}" maxlength="30"></div><div class="field"><label>Profile picture</label><input id="profile-avatar" type="file" accept="image/*"></div><button class="btn wide" data-action="save-profile">Save profile</button><div class="tiny" style="margin-top:8px">Profile pictures are shared through Supabase Storage.</div><div class="security-section"><h3>Account Security</h3><div class="tiny">Set or change your ChaseDex password for normal sign-in.</div><div class="field"><label>New password</label><input id="new-password" type="password" minlength="8" placeholder="At least 8 characters" autocomplete="new-password"></div><div class="field"><label>Confirm password</label><input id="confirm-password" type="password" minlength="8" placeholder="Re-enter password" autocomplete="new-password"></div><button class="btn wide" data-action="set-password">Set password</button></div></div></div>`}
 function readImage(file,max=320){return new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>{const img=new Image();img.onload=()=>{const scale=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));c.getContext('2d').drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL('image/jpeg',.82))};img.onerror=reject;img.src=fr.result};fr.onerror=reject;fr.readAsDataURL(file)})}
 function driveStore(id){const s=data.stores.find(x=>x.id===id);if(!s)return;const dest=Number.isFinite(Number(s.lat))&&Number.isFinite(Number(s.lng))?`${s.lat},${s.lng}`:(s.address||s.name);location.href='https://www.google.com/maps/dir/?api=1&travelmode=driving&destination='+encodeURIComponent(dest)}
 
@@ -249,6 +249,18 @@ document.addEventListener('click',async e=>{
   if(a==='save-ranks'){
    if(currentMember()?.role!=='admin')return;const levels=data.settings.rankingTitles.map((x,i)=>({id:x.id,min:Number(document.getElementById('rank-min-'+i).value)||0,title:document.getElementById('rank-title-'+i).value.trim()||x.title})).sort((a,b)=>a.min-b.min);
    await updateRankingTiers(levels);await refreshShared();toast('Ranking titles saved');return;
+  }
+  if(a==='set-password'){
+   const pw=document.getElementById('new-password')?.value||'', confirmPw=document.getElementById('confirm-password')?.value||'';
+   if(pw.length<8){toast('Password must be at least 8 characters.');return}
+   if(pw!==confirmPw){toast('Passwords do not match.');return}
+   try{
+    await updatePassword(pw);
+    const p1=document.getElementById('new-password'),p2=document.getElementById('confirm-password');
+    if(p1)p1.value='';if(p2)p2.value='';
+    toast('Password updated. Use it for normal sign-in.');
+   }catch(err){console.error(err);toast(String(err?.message||'Could not update password.'))}
+   return;
   }
   if(a==='save-profile'){
    const m=currentMember();if(!m)return;const name=document.getElementById('profile-name').value.trim(),file=document.getElementById('profile-avatar').files[0];let avatarPath=m.avatarPath||null;

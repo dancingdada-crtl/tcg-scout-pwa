@@ -24,3 +24,6 @@
 .login-divider{display:flex;align-items:center;gap:12px;margin:14px 0;color:var(--muted,#9aa7ad);font-size:.85rem}
 .login-divider:before,.login-divider:after{content:"";height:1px;flex:1;background:rgba(255,255,255,.12)}
 .login-divider span{padding:0 4px}
+
+.security-section{margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.12)}
+.security-section h3{margin:0 0 6px}
