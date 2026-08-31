@@ -3,7 +3,7 @@ import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './supabase-config.js';
 
 export const backendConfigured = /^https:\/\//.test(SUPABASE_URL) && !SUPABASE_URL.includes('PASTE_') && SUPABASE_PUBLISHABLE_KEY && !SUPABASE_PUBLISHABLE_KEY.includes('PASTE_');
 export const supabase = backendConfigured ? createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit' }
 }) : null;
 
 const sourceFromDb = v => v ? (({firsthand:'Firsthand',friend:'Friend',phone_call:'Phone call',social_media:'Social media',employee:'Store employee',other:'Other'})[v] || v) : null;
@@ -24,9 +24,54 @@ async function q(promise){const {data,error}=await promise;if(error)throw error;
 
 export async function getAuthSession(){
   if(!supabase) return null;
+
+  // Supabase normally detects Magic Link tokens automatically. Handle the
+  // redirect explicitly as a fallback so mobile browsers/PWAs do not render
+  // the signed-out screen before the returned session has been persisted.
+  const url = new URL(window.location.href);
+  const code = url.searchParams.get('code');
+  if(code){
+    const {data,error}=await supabase.auth.exchangeCodeForSession(code);
+    if(error) throw error;
+    cleanAuthRedirectUrl();
+    if(data?.session) return data.session;
+  }
+
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/,''));
+  const accessToken = hash.get('access_token');
+  const refreshToken = hash.get('refresh_token');
+  if(accessToken && refreshToken){
+    const {data,error}=await supabase.auth.setSession({access_token:accessToken,refresh_token:refreshToken});
+    if(error) throw error;
+    cleanAuthRedirectUrl();
+    if(data?.session) return data.session;
+  }
+
   const {data,error}=await supabase.auth.getSession();
   if(error) throw error;
-  return data.session;
+  if(data.session) return data.session;
+
+  // Give the client's automatic URL/session initialization a brief chance to
+  // finish before deciding that the user is signed out.
+  return await new Promise(resolve=>{
+    let done=false;
+    const finish=session=>{if(done)return;done=true;clearTimeout(timer);subscription?.unsubscribe();resolve(session||null)};
+    const {data:listener}=supabase.auth.onAuthStateChange((event,session)=>{
+      if(event==='INITIAL_SESSION'||event==='SIGNED_IN') finish(session);
+    });
+    const subscription=listener.subscription;
+    const timer=setTimeout(async()=>{
+      try{const {data:latest}=await supabase.auth.getSession();finish(latest.session)}catch{finish(null)}
+    },1500);
+  });
+}
+
+function cleanAuthRedirectUrl(){
+  const url = new URL(window.location.href);
+  ['code','token','type','error','error_code','error_description'].forEach(k=>url.searchParams.delete(k));
+  // Auth token fragments are not app deep links, so remove only those.
+  if(/(?:^|#|&)access_token=|(?:^|#|&)refresh_token=/.test(window.location.hash)) url.hash='';
+  history.replaceState(null,'',url.pathname+(url.searchParams.toString()?`?${url.searchParams}`:'')+url.hash);
 }
 
 export function onAuthStateChange(cb){
@@ -62,8 +107,8 @@ export async function recordSession(){
 export async function loadSharedData(session=null){
   if(!supabase) throw new Error('Supabase is not configured.');
   const settingsRows=await q(supabase.from('app_settings').select('*').limit(1));
-  const setting=settingsRows[0]||{app_name:'TCG Scout',app_icon_path:null};
-  const baseSettings={periods:['Morning','Noon','Afternoon','Evening'],appName:setting.app_name||'TCG Scout',appIcon:publicUrl('app-branding',setting.app_icon_path),appIconPath:setting.app_icon_path||null,rankingTitles:[]};
+  const setting=settingsRows[0]||{app_name:'ChaseDex',app_icon_path:null};
+  const baseSettings={periods:['Morning','Noon','Afternoon','Evening'],appName:(!setting.app_name||setting.app_name==='TCG Scout')?'ChaseDex':setting.app_name,appIcon:publicUrl('app-branding',setting.app_icon_path),appIconPath:setting.app_icon_path||null,rankingTitles:[]};
 
   if(!session){
     const [stores,products,reports]=await Promise.all([
@@ -99,6 +144,10 @@ export async function loadSharedData(session=null){
     const p=profById.get(r.id)||{},a=adminById.get(r.id)||{};
     return {id:r.id,name:r.display_name||r.username||'Scout',username:r.username||'',email:a.email||(r.id===session.user.id?session.user.email:''),role:p.role||'member',avatarPath:r.avatar_path||null,avatar:publicUrl('profile-images',r.avatar_path),reports:Number(r.reports||0),confirmations:Number(r.confirmations||0),points:Number(r.contribution_points||0),rankingTitle:r.ranking_title||'Scout',rank:Number(r.contribution_rank||0),activeDays:Number(a.active_days||0),sessions:Number(a.session_count||0),logins:Number(a.login_count||0),lastActive:a.last_active_at||null,lastLogin:a.last_login_at||null,enabled:a.is_enabled!==false};
   });
+  if(!members.some(m=>m.id===session.user.id)){
+    const a=adminById.get(session.user.id)||{};
+    members.push({id:session.user.id,name:meProfile.display_name||meProfile.username||'Scout',username:meProfile.username||'',email:a.email||session.user.email||'',role:meProfile.role||'member',avatarPath:meProfile.avatar_path||null,avatar:publicUrl('profile-images',meProfile.avatar_path),reports:0,confirmations:0,points:0,rankingTitle:'Scout',rank:0,activeDays:Number(a.active_days||0),sessions:Number(a.session_count||0),logins:Number(a.login_count||0),lastActive:a.last_active_at||null,lastLogin:a.last_login_at||null,enabled:a.is_enabled!==false});
+  }
   if(meProfile.role==='admin'){
     for(const a of adminActivity){
       if(!members.some(m=>m.id===a.id)){const p=profById.get(a.id)||{};members.push({id:a.id,name:a.display_name||a.username||'Scout',username:a.username||'',email:a.email||'',role:p.role||'member',avatarPath:a.avatar_path||null,avatar:publicUrl('profile-images',a.avatar_path),reports:Number(a.reports||0),confirmations:Number(a.confirmations||0),points:Number(a.reports||0)+Number(a.confirmations||0),rankingTitle:'Disabled',rank:0,activeDays:Number(a.active_days||0),sessions:Number(a.session_count||0),logins:Number(a.login_count||0),lastActive:a.last_active_at||null,lastLogin:a.last_login_at||null,enabled:a.is_enabled!==false});}

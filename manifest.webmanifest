@@ -1,6 +1,6 @@
 {
-  "name": "TCG Scout",
-  "short_name": "TCG Scout",
+  "name": "ChaseDex",
+  "short_name": "ChaseDex",
   "description": "Private local TCG store map, activity, analytics and price tracker.",
   "start_url": "./",
   "display": "standalone",
