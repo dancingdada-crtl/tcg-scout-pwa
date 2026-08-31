@@ -12,3 +12,6 @@
 /* V1.2.1 full-screen store/report flow: originating map/activity view is not rendered underneath. */
 .sheet.flow-sheet{background:var(--bg);align-items:stretch}
 .sheet.flow-sheet .sheet-card{width:min(760px,100%);height:100dvh;max-height:none;margin:0 auto;border:0;border-radius:0;padding-top:max(18px,env(safe-area-inset-top));padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+
+/* V1.3 shared-backend states */
+.top-actions{display:flex;gap:6px;align-items:center}.feedback-summary{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0;font-size:.85rem;color:var(--muted)}.btn.selected{outline:2px solid currentColor}.login-card .btn.secondary{margin-top:10px}
