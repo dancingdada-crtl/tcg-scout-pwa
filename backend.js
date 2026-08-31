@@ -206,6 +206,46 @@ export async function updateRankingTiers(levels){
 }
 export async function setMemberEnabled(id,enabled){const {error}=await supabase.from('profile_private').update({is_enabled:enabled}).eq('id',id);if(error)throw error;}
 
+export async function adminUpdateStore(id,s){
+  const payload={
+    name:s.name, chain:s.chain||null, address:s.address||null,
+    city:s.city||null, state:s.state||null, postal_code:s.postalCode||null,
+    latitude:s.lat, longitude:s.lng, active:s.active!==false
+  };
+  const {error}=await supabase.from('stores').update(payload).eq('id',id);
+  if(error)throw error;
+}
+
+export async function adminUpdateProduct(id,p){
+  const payload={
+    name:p.name, tcg:p.tcg, set_name:p.setName||null,
+    sku:p.sku||null, upc:p.upc||null, active:p.active!==false
+  };
+  const {error}=await supabase.from('products').update(payload).eq('id',id);
+  if(error)throw error;
+}
+
+export async function adminUpdateReport(id,r){
+  const payload={
+    store_id:r.storeId,
+    product_id:r.productId||null,
+    status:r.status,
+    time_bucket:r.period,
+    people_lining_up:!!r.flags?.line,
+    possible_restock:!!r.flags?.possible,
+    restock_evidence:!!r.flags?.evidence,
+    source_type:sourceToDb(r.source),
+    source_detail:r.sourceDetail||null,
+    notes:r.notes||null,
+    price:r.price,
+    condition:conditionToDb(r.condition),
+    occurred_at:r.occurredAt,
+    occurred_at_is_approx:!!r.occurredApprox
+  };
+  const {error}=await supabase.from('reports').update(payload).eq('id',id);
+  if(error)throw error;
+}
+
 export async function setReportFeedback(reportId,memberId,feedback){const {error}=await supabase.from('report_feedback').upsert({report_id:reportId,member_id:memberId,feedback},{onConflict:'report_id,member_id'});if(error)throw error;}
 
 export function subscribeRealtime(onChange){

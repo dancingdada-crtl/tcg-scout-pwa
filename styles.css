@@ -27,3 +27,19 @@
 
 .security-section{margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.12)}
 .security-section h3{margin:0 0 6px}
+
+/* V1.4 Manage + Admin data tools */
+.section-head.compact{margin-bottom:8px}
+.manage-card{overflow:visible}
+.store-preview-wrap{margin:10px 0 14px}
+.preview-label{margin-bottom:6px}
+#store-preview-map{height:180px;min-height:180px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#111718}
+.admin-data-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.export-sheet-btn{margin:12px 0}
+.admin-record-list{margin-top:8px}
+.admin-record{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.admin-record:last-child{border-bottom:0}
+.admin-record small{display:block;color:var(--muted);font-size:10px;line-height:1.4;margin-top:3px}
+.admin-original{font-size:10px;color:var(--muted);padding:10px 0 14px;word-break:break-word}
+.admin-check{display:flex;gap:8px;align-items:center;border:1px solid var(--line);background:#0f1314;border-radius:13px;padding:11px;margin:12px 0;font-size:12px;font-weight:700}
+@media(min-width:620px){.admin-data-actions{grid-template-columns:repeat(4,1fr)}#store-preview-map{height:210px}}
