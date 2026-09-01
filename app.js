@@ -80,6 +80,7 @@ function todayReports(id){const now=new Date();return reportsForStore(id).filter
 function todayLatestReport(id){return todayReports(id)[0]||null}
 function mapStatusKey(id){const r=todayLatestReport(id);return r?.status==='stock'?'stock':r?.status==='empty'?'empty':'unchecked'}
 function mapStatus(id){return statusMeta[mapStatusKey(id)]}
+function latestStatus(id){return mapStatus(id)}
 function activeIndicators(){return (data.indicators||[]).filter(i=>i.active)}
 function indicatorById(id){return (data.indicators||[]).find(i=>i.id===id)}
 function reportFlags(r){return (r?.indicatorIds||[]).map(id=>indicatorById(id)?.emoji).filter(Boolean).join(' ')}
@@ -141,7 +142,7 @@ function products(){
  if(!isMember())return `<section class="section"><div class="empty">Sign in to manage stores and products.</div></section>`;
  const kind=state.manageKind||'stores',items=kind==='stores'?data.stores.filter(x=>!x.deletedAt):data.products.filter(x=>!x.deletedAt);
  return `<section class="section"><div class="section-head"><div><h2>Manage</h2><div class="tiny">Add, modify or delete shared stores and products.</div></div><button class="pill" data-action="${kind==='stores'?'open-store-add':'open-product-add'}">＋ Add ${kind==='stores'?'store':'product'}</button></div><div class="manage-toggle"><button class="chip ${kind==='stores'?'active':''}" data-action="manage-kind" data-kind="stores">Stores</button><button class="chip ${kind==='products'?'active':''}" data-action="manage-kind" data-kind="products">Products</button></div><div class="card manage-list-card">${items.map(x=>kind==='stores'?`<button class="manage-item" data-action="edit-store" data-id="${x.id}"><span><b>${esc(x.name)}</b><small>${esc(x.address||'No address')}</small></span><span>›</span></button>`:`<button class="manage-item" data-action="edit-product" data-id="${x.id}"><span><b>${esc(x.name)}</b><small>${esc(x.tcg)}${x.sku?` · ${esc(x.sku)}`:''}</small></span><span>›</span></button>`).join('')||'<div class="empty">Nothing here yet.</div>'}</div></section>`}
-function members()function members(){const me=currentMember();if(!me)return '<div class="empty">Sign in as a member to view the member list.</div>';const ranked=data.members.slice().sort((a,b)=>pointsFor(b)-pointsFor(a));return `<section class="section"><div class="section-head"><div><h2>Members</h2><div class="tiny">Contribution ranking and member profiles</div></div><button class="pill" data-action="edit-profile">Edit my profile</button></div><div class="card ranking-list">${ranked.map((m,i)=>`<div class="ranking-row"><div class="rank-num">${i+1}</div>${avatar(m)}<div><b>${esc(m.name)}</b><small>${esc(rankTitle(m))} · ${pointsFor(m)} points</small></div><div class="rank-stats"><b>${m.reports||0}</b><small>reports</small></div></div>`).join('')}</div><div class="tiny contribution-note">Contribution score: 1 point per report + 1 point per confirmation.</div></section>`}
+function members(){const me=currentMember();if(!me)return '<div class="empty">Sign in as a member to view the member list.</div>';const ranked=data.members.slice().sort((a,b)=>pointsFor(b)-pointsFor(a));return `<section class="section"><div class="section-head"><div><h2>Members</h2><div class="tiny">Contribution ranking and member profiles</div></div><button class="pill" data-action="edit-profile">Edit my profile</button></div><div class="card ranking-list">${ranked.map((m,i)=>`<div class="ranking-row"><div class="rank-num">${i+1}</div>${avatar(m)}<div><b>${esc(m.name)}</b><small>${esc(rankTitle(m))} · ${pointsFor(m)} points</small></div><div class="rank-stats"><b>${m.reports||0}</b><small>reports</small></div></div>`).join('')}</div><div class="tiny contribution-note">Contribution score: 1 point per report + 1 point per confirmation.</div></section>`}
 function admin(){
  if(currentMember()?.role!=='admin')return'<div class="empty">Admin only.</div>';
  const logs=(data.changeLog||[]).slice(0,100);
@@ -223,7 +224,7 @@ function profileSheet(){const m=currentMember();return `<div class="sheet"><div 
 function readImage(file,max=320){return new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>{const img=new Image();img.onload=()=>{const scale=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));c.getContext('2d').drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL('image/jpeg',.82))};img.onerror=reject;img.src=fr.result};fr.onerror=reject;fr.readAsDataURL(file)})}
 function driveStore(id){const s=data.stores.find(x=>x.id===id);if(!s)return;const dest=Number.isFinite(Number(s.lat))&&Number.isFinite(Number(s.lng))?`${s.lat},${s.lng}`:(s.address||s.name);location.href='https://www.google.com/maps/dir/?api=1&travelmode=driving&destination='+encodeURIComponent(dest)}
 
-async function shareStore(storeId){const s=data.stores.find(x=>x.id===storeId),r=latestReport(storeId);const text=`ChaseDex — ${s.name}: ${r?`${statusMeta[r.status].label} ${reportFlags(r)} · ${r.period} · ${fmtTime(r.occurredAt)}`:'Not checked recently'}.`;const url=location.href.split('#')[0]+'#store='+encodeURIComponent(storeId);if(navigator.share){try{await navigator.share({title:'ChaseDex update',text,url});return}catch{}}location.href='sms:?&body='+encodeURIComponent(`${text} ${url}`)}
+async function shareStore(storeId){const s=data.stores.find(x=>x.id===storeId),r=latestReport(storeId);const text=`ChaseDex — ${s.name}: ${r?`${(statusMeta[r.status]||statusMeta.unchecked).label} ${reportFlags(r)} · ${r.period} · ${fmtTime(r.occurredAt)}`:'Not checked recently'}.`;const url=location.href.split('#')[0]+'#store='+encodeURIComponent(storeId);if(navigator.share){try{await navigator.share({title:'ChaseDex update',text,url});return}catch{}}location.href='sms:?&body='+encodeURIComponent(`${text} ${url}`)}
 async function shareReport(id){const r=data.reports.find(x=>x.id===id),s=data.stores.find(x=>x.id===r.storeId);const text=`ChaseDex — ${s?.name}: ${statusMeta[r.status]?.label||'Update'} ${reportFlags(r)} · ${r.period} · ${fmtTime(r.occurredAt)}.`;const url=location.href.split('#')[0]+'#report='+encodeURIComponent(id);if(navigator.share){try{await navigator.share({title:'ChaseDex report',text,url});return}catch{}}location.href='sms:?&body='+encodeURIComponent(`${text} ${url}`)}
 function openSearch(q){window.open('https://www.google.com/search?q='+encodeURIComponent(q),'_blank','noopener')}
 
@@ -233,8 +234,8 @@ function render(){
  const root=document.getElementById('app');
  if(!appReady){root.innerHTML=loadingView();return;}
  root.innerHTML=(currentMember()||isViewer())?shell():loginView();
+ document.body.insertAdjacentHTML('beforeend',magicLinkSentModal());
  if(currentMember()||isViewer()){
-  document.body.insertAdjacentHTML('beforeend',magicLinkSentModal());
   setTimeout(renderMap,0);
   if(state.sheet==='store-add'||state.sheet==='store-edit'){const lat=document.getElementById('new-lat')?.value,lng=document.getElementById('new-lng')?.value;if(lat&&lng)setTimeout(()=>renderStorePreview(lat,lng),0)}
   const sm=location.hash.match(/store=([^&]+)/);const rm=location.hash.match(/report=([^&]+)/);
@@ -248,7 +249,7 @@ async function refreshShared({quiet=true}={}){
 function scheduleRefresh(){clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>refreshShared(),250)}
 
 document.addEventListener('click',async e=>{
- const modalAction=e.target.closest('[data-action]')?.dataset.action;
+ const modalAction=e.target instanceof Element?e.target.closest('[data-action]')?.dataset.action:null;
  if(modalAction==='magic-sent-close'||modalAction==='magic-password-login'){state.magicSent=false;render();return}
 
  const el=e.target.closest('[data-action]');if(!el)return;const a=el.dataset.action;
