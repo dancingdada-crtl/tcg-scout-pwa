@@ -57,7 +57,7 @@ function migrate(d){
 }
 function load(){try{return migrate(JSON.parse(localStorage.getItem(KEY))||seed())}catch{return seed()}}
 let data=load();
-let state={magicSent:false,view:'home',sheet:null,selectedStore:null,activityStore:'All',activityMetric:'stock',mapSort:'default',userLocation:null,routeMode:false,routeSelected:[],mapStatuses:['stock','empty','unchecked'],mapIndicatorFilters:[],manageKind:'stores',editId:null,analytics:{metric:'stock',tcg:'All',productId:'All',storeId:'All',period:'All',range:30,groupBy:'day'},toast:null};
+let state={view:'home',sheet:null,selectedStore:null,activityStore:'All',activityMetric:'stock',mapSort:'default',userLocation:null,routeMode:false,routeSelected:[],mapStatuses:['stock','empty','unchecked'],mapIndicatorFilters:[],manageKind:'stores',editId:null,analytics:{metric:'stock',tcg:'All',productId:'All',storeId:'All',period:'All',range:30,groupBy:'day'},toast:null};
 function save(){localStorage.setItem(KEY,JSON.stringify(data))}
 let authSession=null;let viewerMode=false;let appReady=false;let realtimeChannel=null;let refreshTimer=null;let loginNotice='';let pendingEmail='';let magicCooldownUntil=0;let magicCooldownTimer=null;
 function localBrandIcon(sizeClass=''){return `<img class="brand-icon${sizeClass?' '+sizeClass:''}" src="./icon-192.png" alt="ChaseDex">`}
@@ -80,7 +80,6 @@ function todayReports(id){const now=new Date();return reportsForStore(id).filter
 function todayLatestReport(id){return todayReports(id)[0]||null}
 function mapStatusKey(id){const r=todayLatestReport(id);return r?.status==='stock'?'stock':r?.status==='empty'?'empty':'unchecked'}
 function mapStatus(id){return statusMeta[mapStatusKey(id)]}
-function latestStatus(id){return mapStatus(id)}
 function activeIndicators(){return (data.indicators||[]).filter(i=>i.active)}
 function indicatorById(id){return (data.indicators||[]).find(i=>i.id===id)}
 function reportFlags(r){return (r?.indicatorIds||[]).map(id=>indicatorById(id)?.emoji).filter(Boolean).join(' ')}
@@ -102,11 +101,6 @@ function rankTitle(m){const pts=pointsFor(m),levels=(data.settings?.rankingTitle
 function avatar(m,cls='avatar'){return m?.avatar?`<img class="${cls}" src="${m.avatar}" alt="">`:`<span class="${cls} avatar-fallback">${esc((m?.name||'?').slice(0,1).toUpperCase())}</span>`}
 function applyBranding(){document.title=appName();const meta=document.querySelector('meta[name="application-name"]');if(meta)meta.content=appName()}
 
-
-function magicLinkSentModal(){
- if(!state.magicSent)return'';
- return `<div class="magic-modal-backdrop"><div class="magic-modal" role="dialog" aria-modal="true" aria-labelledby="magic-sent-title"><div class="magic-modal-icon">✉️</div><h2 id="magic-sent-title">Magic link sent</h2><p>Check your email and open the ChaseDex sign-in link.</p><div class="magic-first-time"><b>First time here?</b><span>After you sign in, go to <strong>Members → Edit My Profile → Account Security</strong> and create a password.</span></div><p class="tiny">ChaseDex uses a free email service, so Magic Links are limited. Use your <b>email + password</b> for future sign-ins.</p><div class="magic-modal-actions"><button class="btn wide" data-action="magic-sent-close">Got it</button><button class="btn secondary wide" data-action="magic-password-login">Go to Password Login</button></div></div></div>`;
-}
 function loginView(){
  if(!backendConfigured)return `<div class="login"><div class="login-card">${localBrandIcon('large')}<h1>Supabase setup needed</h1><p>V1.3 is ready, but this build still needs your Supabase Project URL and publishable/anon key in <b>supabase-config.js</b>.</p><div class="demo-note">Never use the service_role/secret key in this file.</div></div></div>`;
  return `<div class="login"><div class="login-card">${data.settings?.appIcon?`<img class="brand-icon large" src="${data.settings.appIcon}" alt="ChaseDex">`:localBrandIcon('large')}<h1>${esc(appName())}</h1><p>Fast local restock, price and activity intelligence for your group.</p>${loginNotice?`<div class="login-notice">${esc(loginNotice)}</div>`:''}<div class="field"><label>Email</label><input id="email" type="email" value="${esc(pendingEmail)}" placeholder="you@example.com" autocomplete="email"></div><div class="field"><label>Password</label><input id="password" type="password" placeholder="Your password" autocomplete="current-password"></div><button class="btn wide" data-action="password-login">Sign in</button><div class="login-divider"><span>or</span></div>${(()=>{const n=magicCooldownSeconds();return `<button class="btn secondary wide" data-action="magic-login" ${n?'disabled':''}>${n?`Try magic link again in ${n}s`:'Email me a magic link'}</button>`})()}<button class="btn secondary wide" data-action="public-view">Continue as Public Viewer</button><div class="demo-note">Member signup is invite-only. Use your password for normal sign-in. Magic Link remains available for first-time access or recovery.</div></div></div>`}
@@ -142,7 +136,7 @@ function products(){
  if(!isMember())return `<section class="section"><div class="empty">Sign in to manage stores and products.</div></section>`;
  const kind=state.manageKind||'stores',items=kind==='stores'?data.stores.filter(x=>!x.deletedAt):data.products.filter(x=>!x.deletedAt);
  return `<section class="section"><div class="section-head"><div><h2>Manage</h2><div class="tiny">Add, modify or delete shared stores and products.</div></div><button class="pill" data-action="${kind==='stores'?'open-store-add':'open-product-add'}">＋ Add ${kind==='stores'?'store':'product'}</button></div><div class="manage-toggle"><button class="chip ${kind==='stores'?'active':''}" data-action="manage-kind" data-kind="stores">Stores</button><button class="chip ${kind==='products'?'active':''}" data-action="manage-kind" data-kind="products">Products</button></div><div class="card manage-list-card">${items.map(x=>kind==='stores'?`<button class="manage-item" data-action="edit-store" data-id="${x.id}"><span><b>${esc(x.name)}</b><small>${esc(x.address||'No address')}</small></span><span>›</span></button>`:`<button class="manage-item" data-action="edit-product" data-id="${x.id}"><span><b>${esc(x.name)}</b><small>${esc(x.tcg)}${x.sku?` · ${esc(x.sku)}`:''}</small></span><span>›</span></button>`).join('')||'<div class="empty">Nothing here yet.</div>'}</div></section>`}
-function members(){const me=currentMember();if(!me)return '<div class="empty">Sign in as a member to view the member list.</div>';const ranked=data.members.slice().sort((a,b)=>pointsFor(b)-pointsFor(a));return `<section class="section"><div class="section-head"><div><h2>Members</h2><div class="tiny">Contribution ranking and member profiles</div></div><button class="pill" data-action="edit-profile">Edit my profile</button></div><div class="card ranking-list">${ranked.map((m,i)=>`<div class="ranking-row"><div class="rank-num">${i+1}</div>${avatar(m)}<div><b>${esc(m.name)}</b><small>${esc(rankTitle(m))} · ${pointsFor(m)} points</small></div><div class="rank-stats"><b>${m.reports||0}</b><small>reports</small></div></div>`).join('')}</div><div class="tiny contribution-note">Contribution score: 1 point per report + 1 point per confirmation.</div></section>`}
+function members()function members(){const me=currentMember();if(!me)return '<div class="empty">Sign in as a member to view the member list.</div>';const ranked=data.members.slice().sort((a,b)=>pointsFor(b)-pointsFor(a));return `<section class="section"><div class="section-head"><div><h2>Members</h2><div class="tiny">Contribution ranking and member profiles</div></div><button class="pill" data-action="edit-profile">Edit my profile</button></div><div class="card ranking-list">${ranked.map((m,i)=>`<div class="ranking-row"><div class="rank-num">${i+1}</div>${avatar(m)}<div><b>${esc(m.name)}</b><small>${esc(rankTitle(m))} · ${pointsFor(m)} points</small></div><div class="rank-stats"><b>${m.reports||0}</b><small>reports</small></div></div>`).join('')}</div><div class="tiny contribution-note">Contribution score: 1 point per report + 1 point per confirmation.</div></section>`}
 function admin(){
  if(currentMember()?.role!=='admin')return'<div class="empty">Admin only.</div>';
  const logs=(data.changeLog||[]).slice(0,100);
@@ -224,17 +218,15 @@ function profileSheet(){const m=currentMember();return `<div class="sheet"><div 
 function readImage(file,max=320){return new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>{const img=new Image();img.onload=()=>{const scale=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));c.getContext('2d').drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL('image/jpeg',.82))};img.onerror=reject;img.src=fr.result};fr.onerror=reject;fr.readAsDataURL(file)})}
 function driveStore(id){const s=data.stores.find(x=>x.id===id);if(!s)return;const dest=Number.isFinite(Number(s.lat))&&Number.isFinite(Number(s.lng))?`${s.lat},${s.lng}`:(s.address||s.name);location.href='https://www.google.com/maps/dir/?api=1&travelmode=driving&destination='+encodeURIComponent(dest)}
 
-async function shareStore(storeId){const s=data.stores.find(x=>x.id===storeId),r=latestReport(storeId);const text=`ChaseDex — ${s.name}: ${r?`${(statusMeta[r.status]||statusMeta.unchecked).label} ${reportFlags(r)} · ${r.period} · ${fmtTime(r.occurredAt)}`:'Not checked recently'}.`;const url=location.href.split('#')[0]+'#store='+encodeURIComponent(storeId);if(navigator.share){try{await navigator.share({title:'ChaseDex update',text,url});return}catch{}}location.href='sms:?&body='+encodeURIComponent(`${text} ${url}`)}
+async function shareStore(storeId){const s=data.stores.find(x=>x.id===storeId),r=latestReport(storeId);const text=`ChaseDex — ${s.name}: ${r?`${statusMeta[r.status].label} ${reportFlags(r)} · ${r.period} · ${fmtTime(r.occurredAt)}`:'Not checked recently'}.`;const url=location.href.split('#')[0]+'#store='+encodeURIComponent(storeId);if(navigator.share){try{await navigator.share({title:'ChaseDex update',text,url});return}catch{}}location.href='sms:?&body='+encodeURIComponent(`${text} ${url}`)}
 async function shareReport(id){const r=data.reports.find(x=>x.id===id),s=data.stores.find(x=>x.id===r.storeId);const text=`ChaseDex — ${s?.name}: ${statusMeta[r.status]?.label||'Update'} ${reportFlags(r)} · ${r.period} · ${fmtTime(r.occurredAt)}.`;const url=location.href.split('#')[0]+'#report='+encodeURIComponent(id);if(navigator.share){try{await navigator.share({title:'ChaseDex report',text,url});return}catch{}}location.href='sms:?&body='+encodeURIComponent(`${text} ${url}`)}
 function openSearch(q){window.open('https://www.google.com/search?q='+encodeURIComponent(q),'_blank','noopener')}
 
 function loadingView(){return `<div class="login"><div class="login-card">${localBrandIcon('large')}<h1>${esc(appName())}</h1><p>Loading shared scout data…</p></div></div>`}
 function render(){
- document.querySelectorAll('.magic-modal-backdrop').forEach(x=>x.remove());
  const root=document.getElementById('app');
  if(!appReady){root.innerHTML=loadingView();return;}
  root.innerHTML=(currentMember()||isViewer())?shell():loginView();
- document.body.insertAdjacentHTML('beforeend',magicLinkSentModal());
  if(currentMember()||isViewer()){
   setTimeout(renderMap,0);
   if(state.sheet==='store-add'||state.sheet==='store-edit'){const lat=document.getElementById('new-lat')?.value,lng=document.getElementById('new-lng')?.value;if(lat&&lng)setTimeout(()=>renderStorePreview(lat,lng),0)}
@@ -249,9 +241,6 @@ async function refreshShared({quiet=true}={}){
 function scheduleRefresh(){clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>refreshShared(),250)}
 
 document.addEventListener('click',async e=>{
- const modalAction=e.target instanceof Element?e.target.closest('[data-action]')?.dataset.action:null;
- if(modalAction==='magic-sent-close'||modalAction==='magic-password-login'){state.magicSent=false;render();return}
-
  const el=e.target.closest('[data-action]');if(!el)return;const a=el.dataset.action;
  try{
   if(a==='password-login'){
@@ -270,7 +259,7 @@ document.addEventListener('click',async e=>{
    const wait=magicCooldownSeconds();if(wait){loginNotice=`Please wait ${wait} second${wait===1?'':'s'} before requesting another magic link.`;render();return}
    pendingEmail=email;loginNotice='Sending magic link…';render();
    try{
-    await sendMagicLink(email);loginNotice='Magic link sent. Open the newest email on this device.';startMagicCooldown(60);state.magicSent=true;render();
+    await sendMagicLink(email);loginNotice='Magic link sent. Open the newest email on this device.';startMagicCooldown(60);render();
    }catch(err){
     console.error(err);const msg=String(err?.message||'');const match=msg.match(/after\s+(\d+)\s+seconds?/i);const seconds=match?Number(match[1]):(err?.status===429?30:0);
     if(seconds){loginNotice=`Please wait ${seconds} second${seconds===1?'':'s'} before requesting another magic link.`;startMagicCooldown(seconds)}

@@ -78,11 +78,3 @@
 .indicator-admin-row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
 .indicator-admin-row:last-child{border-bottom:0}.indicator-emoji{font-size:24px}.indicator-admin-row small,.change-row small{display:block;color:var(--muted);font-size:10px;margin-top:2px}
 .change-row{padding:10px 0;border-bottom:1px solid var(--line)}.change-row:last-child{border-bottom:0}
-
-/* ChaseDex V1.6.1 Magic Link guidance */
-.magic-modal-backdrop{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:18px}
-.magic-modal{width:min(100%,420px);background:#111617;border:1px solid var(--line);border-radius:22px;padding:22px;box-shadow:0 22px 70px rgba(0,0,0,.45)}
-.magic-modal-icon{font-size:34px;margin-bottom:8px}.magic-modal h2{margin:0 0 8px}.magic-modal p{line-height:1.5}
-.magic-first-time{display:grid;gap:5px;background:#0c2020;border:1px solid #245f5d;border-radius:15px;padding:13px;margin:14px 0}
-.magic-first-time span{font-size:12px;line-height:1.45;color:var(--muted)}
-.magic-modal-actions{display:grid;gap:8px;margin-top:16px}
