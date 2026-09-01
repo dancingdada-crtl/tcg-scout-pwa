@@ -57,7 +57,7 @@ function migrate(d){
 }
 function load(){try{return migrate(JSON.parse(localStorage.getItem(KEY))||seed())}catch{return seed()}}
 let data=load();
-let state={view:'home',sheet:null,selectedStore:null,activityStore:'All',activityMetric:'stock',mapSort:'default',userLocation:null,routeMode:false,routeSelected:[],mapStatuses:['stock','empty','unchecked'],mapIndicatorFilters:[],manageKind:'stores',editId:null,analytics:{metric:'stock',tcg:'All',productId:'All',storeId:'All',period:'All',range:30,groupBy:'day'},toast:null};
+let state={magicSent:false,view:'home',sheet:null,selectedStore:null,activityStore:'All',activityMetric:'stock',mapSort:'default',userLocation:null,routeMode:false,routeSelected:[],mapStatuses:['stock','empty','unchecked'],mapIndicatorFilters:[],manageKind:'stores',editId:null,analytics:{metric:'stock',tcg:'All',productId:'All',storeId:'All',period:'All',range:30,groupBy:'day'},toast:null};
 function save(){localStorage.setItem(KEY,JSON.stringify(data))}
 let authSession=null;let viewerMode=false;let appReady=false;let realtimeChannel=null;let refreshTimer=null;let loginNotice='';let pendingEmail='';let magicCooldownUntil=0;let magicCooldownTimer=null;
 function localBrandIcon(sizeClass=''){return `<img class="brand-icon${sizeClass?' '+sizeClass:''}" src="./icon-192.png" alt="ChaseDex">`}
@@ -101,6 +101,11 @@ function rankTitle(m){const pts=pointsFor(m),levels=(data.settings?.rankingTitle
 function avatar(m,cls='avatar'){return m?.avatar?`<img class="${cls}" src="${m.avatar}" alt="">`:`<span class="${cls} avatar-fallback">${esc((m?.name||'?').slice(0,1).toUpperCase())}</span>`}
 function applyBranding(){document.title=appName();const meta=document.querySelector('meta[name="application-name"]');if(meta)meta.content=appName()}
 
+
+function magicLinkSentModal(){
+ if(!state.magicSent)return'';
+ return `<div class="magic-modal-backdrop"><div class="magic-modal" role="dialog" aria-modal="true" aria-labelledby="magic-sent-title"><div class="magic-modal-icon">✉️</div><h2 id="magic-sent-title">Magic link sent</h2><p>Check your email and open the ChaseDex sign-in link.</p><div class="magic-first-time"><b>First time here?</b><span>After you sign in, go to <strong>Members → Edit My Profile → Account Security</strong> and create a password.</span></div><p class="tiny">ChaseDex uses a free email service, so Magic Links are limited. Use your <b>email + password</b> for future sign-ins.</p><div class="magic-modal-actions"><button class="btn wide" data-action="magic-sent-close">Got it</button><button class="btn secondary wide" data-action="magic-password-login">Go to Password Login</button></div></div></div>`;
+}
 function loginView(){
  if(!backendConfigured)return `<div class="login"><div class="login-card">${localBrandIcon('large')}<h1>Supabase setup needed</h1><p>V1.3 is ready, but this build still needs your Supabase Project URL and publishable/anon key in <b>supabase-config.js</b>.</p><div class="demo-note">Never use the service_role/secret key in this file.</div></div></div>`;
  return `<div class="login"><div class="login-card">${data.settings?.appIcon?`<img class="brand-icon large" src="${data.settings.appIcon}" alt="ChaseDex">`:localBrandIcon('large')}<h1>${esc(appName())}</h1><p>Fast local restock, price and activity intelligence for your group.</p>${loginNotice?`<div class="login-notice">${esc(loginNotice)}</div>`:''}<div class="field"><label>Email</label><input id="email" type="email" value="${esc(pendingEmail)}" placeholder="you@example.com" autocomplete="email"></div><div class="field"><label>Password</label><input id="password" type="password" placeholder="Your password" autocomplete="current-password"></div><button class="btn wide" data-action="password-login">Sign in</button><div class="login-divider"><span>or</span></div>${(()=>{const n=magicCooldownSeconds();return `<button class="btn secondary wide" data-action="magic-login" ${n?'disabled':''}>${n?`Try magic link again in ${n}s`:'Email me a magic link'}</button>`})()}<button class="btn secondary wide" data-action="public-view">Continue as Public Viewer</button><div class="demo-note">Member signup is invite-only. Use your password for normal sign-in. Magic Link remains available for first-time access or recovery.</div></div></div>`}
@@ -224,10 +229,12 @@ function openSearch(q){window.open('https://www.google.com/search?q='+encodeURIC
 
 function loadingView(){return `<div class="login"><div class="login-card">${localBrandIcon('large')}<h1>${esc(appName())}</h1><p>Loading shared scout data…</p></div></div>`}
 function render(){
+ document.querySelectorAll('.magic-modal-backdrop').forEach(x=>x.remove());
  const root=document.getElementById('app');
  if(!appReady){root.innerHTML=loadingView();return;}
  root.innerHTML=(currentMember()||isViewer())?shell():loginView();
  if(currentMember()||isViewer()){
+  document.body.insertAdjacentHTML('beforeend',magicLinkSentModal());
   setTimeout(renderMap,0);
   if(state.sheet==='store-add'||state.sheet==='store-edit'){const lat=document.getElementById('new-lat')?.value,lng=document.getElementById('new-lng')?.value;if(lat&&lng)setTimeout(()=>renderStorePreview(lat,lng),0)}
   const sm=location.hash.match(/store=([^&]+)/);const rm=location.hash.match(/report=([^&]+)/);
@@ -241,6 +248,9 @@ async function refreshShared({quiet=true}={}){
 function scheduleRefresh(){clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>refreshShared(),250)}
 
 document.addEventListener('click',async e=>{
+ const modalAction=e.target.closest('[data-action]')?.dataset.action;
+ if(modalAction==='magic-sent-close'||modalAction==='magic-password-login'){state.magicSent=false;render();return}
+
  const el=e.target.closest('[data-action]');if(!el)return;const a=el.dataset.action;
  try{
   if(a==='password-login'){
@@ -259,7 +269,7 @@ document.addEventListener('click',async e=>{
    const wait=magicCooldownSeconds();if(wait){loginNotice=`Please wait ${wait} second${wait===1?'':'s'} before requesting another magic link.`;render();return}
    pendingEmail=email;loginNotice='Sending magic link…';render();
    try{
-    await sendMagicLink(email);loginNotice='Magic link sent. Open the newest email on this device.';startMagicCooldown(60);render();
+    await sendMagicLink(email);loginNotice='Magic link sent. Open the newest email on this device.';startMagicCooldown(60);state.magicSent=true;render();
    }catch(err){
     console.error(err);const msg=String(err?.message||'');const match=msg.match(/after\s+(\d+)\s+seconds?/i);const seconds=match?Number(match[1]):(err?.status===429?30:0);
     if(seconds){loginNotice=`Please wait ${seconds} second${seconds===1?'':'s'} before requesting another magic link.`;startMagicCooldown(seconds)}
