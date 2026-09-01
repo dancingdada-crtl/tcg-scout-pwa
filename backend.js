@@ -87,6 +87,12 @@ export async function sendMagicLink(email){
   if(error) throw error;
 }
 
+export async function validateInviteCode(code){if(!supabase)throw new Error('Supabase is not configured.');const {data,error}=await supabase.rpc('validate_member_invite',{p_code:code});if(error)throw error;if(!data)throw new Error('Invite code is invalid, expired, used, or revoked.');return true;}
+export async function sendInviteMagicLink(email,code){if(!supabase)throw new Error('Supabase is not configured.');const redirectTo=location.origin+location.pathname;const {error}=await supabase.auth.signInWithOtp({email,options:{emailRedirectTo:redirectTo,shouldCreateUser:true,data:{invite_code:code}}});if(error)throw error;}
+export async function createInviteCode(label=''){const {data,error}=await supabase.rpc('create_member_invite',{p_label:label||null});if(error)throw error;return {id:data.id,code:data.code,label:data.invitee_label||'',createdAt:data.created_at,expiresAt:data.expires_at};}
+export async function revokeInviteCode(id){const {error}=await supabase.from('member_invites').update({revoked_at:new Date().toISOString()}).eq('id',id);if(error)throw error;}
+export async function updateLoginSettings(headline,accessMessage,releaseMessage){const {error}=await supabase.from('app_settings').update({login_headline:headline,login_access_message:accessMessage,release_message:releaseMessage}).eq('id',true);if(error)throw error;}
+
 export async function signInWithPassword(email,password){
   if(!supabase) throw new Error('Supabase is not configured.');
   const {data,error}=await supabase.auth.signInWithPassword({email,password});
@@ -122,16 +128,9 @@ export async function loadSharedData(session=null){
   if(!supabase) throw new Error('Supabase is not configured.');
   const settingsRows=await q(supabase.from('app_settings').select('*').limit(1));
   const setting=settingsRows[0]||{app_name:'ChaseDex',app_icon_path:null};
-  const baseSettings={periods:['Morning','Noon','Afternoon','Evening'],appName:(!setting.app_name||setting.app_name==='TCG Scout')?'ChaseDex':setting.app_name,appIcon:publicUrl('app-branding',setting.app_icon_path),appIconPath:setting.app_icon_path||null,rankingTitles:[]};
+  const baseSettings={periods:['Morning','Noon','Afternoon','Evening'],appName:(!setting.app_name||setting.app_name==='TCG Scout')?'ChaseDex':setting.app_name,appIcon:publicUrl('app-branding',setting.app_icon_path),appIconPath:setting.app_icon_path||null,loginHeadline:setting.login_headline||'Fast local restock, price and activity intelligence for your group.',loginAccessMessage:setting.login_access_message||'Member signup is invite-only. Use your password for normal sign-in. Magic Link remains available for first-time access or recovery.',appVersion:setting.app_version||'1.7.0',releaseMessage:setting.release_message||'',reinstallRequired:setting.reinstall_required!==false,rankingTitles:[]};
 
-  if(!session){
-    const [stores,products,reports]=await Promise.all([
-      q(supabase.from('public_stores').select('*')),
-      q(supabase.from('public_products').select('*')),
-      q(supabase.from('public_activity').select('*').order('occurred_at',{ascending:false}).limit(1500))
-    ]);
-    return {version:1.3,stores:stores.map(mapStore),products:products.map(mapProduct),reports:reports.map(mapReport),members:[],savedFilters:[],settings:baseSettings};
-  }
+  if(!session) return {version:1.7,stores:[],products:[],reports:[],members:[],savedFilters:[],indicators:[],invites:[],changeLog:[],settings:baseSettings};
 
   const profileRows=await q(supabase.from('profiles').select('*').eq('id',session.user.id).limit(1));
   const meProfile=profileRows[0];
@@ -182,7 +181,10 @@ export async function loadSharedData(session=null){
   const mappedIndicators=indicators.map(i=>({id:i.id,label:i.label,emoji:i.emoji,active:i.active!==false,sortOrder:Number(i.sort_order||0)}));
   let changeLog=[];
   if(meProfile.role==='admin') changeLog=await q(supabase.from('chasedex_change_log').select('*').order('changed_at',{ascending:false}).limit(1000));
-  return {version:1.6,stores:stores.map(mapStore),products:products.map(mapProduct),reports:mappedReports,members,savedFilters,indicators:mappedIndicators,changeLog,settings:baseSettings};
+  const inviteRows=await q(supabase.from('member_invites').select('*').order('created_at',{ascending:false}).limit(meProfile.role==='admin'?500:50));
+  const memberNames=new Map(members.map(m=>[m.id,m.name]));
+  const invites=inviteRows.map(i=>({id:i.id,code:i.code,label:i.invitee_label||'',createdBy:i.created_by,creatorName:memberNames.get(i.created_by)||'Member',createdAt:i.created_at,expiresAt:i.expires_at,redeemedAt:i.redeemed_at,redeemedEmail:i.redeemed_email||'',revokedAt:i.revoked_at}));
+  return {version:1.7,stores:stores.map(mapStore),products:products.map(mapProduct),reports:mappedReports,members,savedFilters,indicators:mappedIndicators,invites,changeLog,settings:baseSettings};
 }
 
 export async function createReport(r){
@@ -289,6 +291,7 @@ export function subscribeRealtime(onChange){
     .on('postgres_changes',{event:'*',schema:'public',table:'app_settings'},onChange)
     .on('postgres_changes',{event:'*',schema:'public',table:'report_indicators_catalog'},onChange)
     .on('postgres_changes',{event:'*',schema:'public',table:'report_indicator_values'},onChange)
+    .on('postgres_changes',{event:'*',schema:'public',table:'member_invites'},onChange)
     .subscribe();
   return channel;
 }
