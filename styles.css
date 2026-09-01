@@ -86,3 +86,10 @@
 .magic-first-time{display:grid;gap:5px;background:#0c2020;border:1px solid #245f5d;border-radius:15px;padding:13px;margin:14px 0}
 .magic-first-time span{font-size:12px;line-height:1.45;color:var(--muted)}
 .magic-modal-actions{display:grid;gap:8px;margin-top:16px}
+
+/* ChaseDex V1.6.6 seven-day activity bars */
+.seven-bars{height:190px;display:grid;grid-template-columns:repeat(7,1fr);gap:8px;align-items:end;padding-top:14px}
+.bar-col{height:100%;display:grid;grid-template-rows:auto 1fr auto;gap:5px;align-items:end;text-align:center}
+.bar-value,.bar-day{font-size:10px;color:var(--muted)}
+.bar-track{height:130px;border-radius:9px;background:rgba(255,255,255,.05);display:flex;align-items:flex-end;overflow:hidden}
+.bar-fill{width:100%;min-height:0;border-radius:9px 9px 0 0;background:currentColor;opacity:.85}

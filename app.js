@@ -92,6 +92,34 @@ function storeDistance(s){return state.userLocation?haversineMiles(state.userLoc
 function sortedHomeStores(){const stores=activeStores().filter(storePassesMapFilters).slice();if(state.mapSort==='nearest'&&state.userLocation)return stores.sort((a,b)=>(storeDistance(a)??Infinity)-(storeDistance(b)??Infinity));return stores.sort((a,b)=>a.name.localeCompare(b.name))}
 function selectedRouteStore(id){return state.routeSelected.includes(id)}
 function routeSelectedStores(){return state.routeSelected.map(id=>data.stores.find(s=>s.id===id)).filter(Boolean)}
+function toggleRouteStore(id){
+ state.routeSelected=selectedRouteStore(id)?state.routeSelected.filter(x=>x!==id):[...state.routeSelected,id];
+}
+function requestCurrentLocation(){
+ return new Promise((resolve,reject)=>{
+  if(!navigator.geolocation)return reject(new Error('Location is not available on this device.'));
+  navigator.geolocation.getCurrentPosition(
+   p=>resolve({lat:p.coords.latitude,lng:p.coords.longitude}),
+   e=>reject(new Error(e.code===1?'Location permission was denied.':e.code===2?'Your location is unavailable.':'Could not get your current location.')),
+   {enableHighAccuracy:false,timeout:10000,maximumAge:120000}
+  );
+ });
+}
+function googleRouteUrl(stores){
+ if(!stores?.length)return'';
+ const valid=stores.filter(s=>Number.isFinite(Number(s.lat))&&Number.isFinite(Number(s.lng)));
+ if(!valid.length)return'';
+ const point=s=>`${Number(s.lat)},${Number(s.lng)}`;
+ if(valid.length===1)return `https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${encodeURIComponent(point(valid[0]))}`;
+ const destination=valid[valid.length-1];
+ const waypoints=valid.slice(0,-1).map(point).join('|');
+ return `https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${encodeURIComponent(point(destination))}&waypoints=${encodeURIComponent(waypoints)}`;
+}
+function wazeRouteUrl(store){
+ if(!store||!Number.isFinite(Number(store.lat))||!Number.isFinite(Number(store.lng)))return'';
+ return `https://www.waze.com/ul?ll=${encodeURIComponent(`${Number(store.lat)},${Number(store.lng)}`)}&navigate=yes`;
+}
+
 
 function sameDay(a,b){return new Date(a).toDateString()===new Date(b).toDateString()}
 function metricMatch(r,m){if(m==='stock'||m==='empty')return r.status===m;if(m.startsWith('indicator:'))return (r.indicatorIds||[]).includes(m.slice(10));return true}
@@ -132,6 +160,13 @@ function renderMap(){
  stores.forEach(s=>{if(!Number.isFinite(Number(s.lat))||!Number.isFinite(Number(s.lng)))return;const st=mapStatus(s.id),emojis=storeTodayIndicatorIds(s.id).map(id=>indicatorById(id)?.emoji||'').join('');const icon=L.divIcon({className:'custom-marker',html:`<div class="pin ${st.cls}">${emojis?`<span class="pin-emoji">${emojis}</span>`:''}</div>`,iconSize:[30,38],iconAnchor:[15,38]});const marker=L.marker([s.lat,s.lng],{icon}).addTo(map);marker.on('click',()=>{const fake={dataset:{id:s.id}};if(state.routeMode){state.routeSelected=selectedRouteStore(s.id)?state.routeSelected.filter(x=>x!==s.id):[...state.routeSelected,s.id];render()}else{state.selectedStore=s.id;state.sheet='store';render()}});pts.push([s.lat,s.lng])});
  if(state.userLocation){L.circleMarker([state.userLocation.lat,state.userLocation.lng],{radius:7}).addTo(map).bindTooltip('Your location');pts.push([state.userLocation.lat,state.userLocation.lng])}
  if(pts.length>1)map.fitBounds(pts,{padding:[30,30],maxZoom:14});else if(pts.length===1)map.setView(pts[0],14);
+}
+
+function sevenBars(storeId,metric){
+ const days=[...Array(7)].map((_,i)=>{const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-(6-i));return d});
+ const values=days.map(d=>countMetric(storeId,d,metric));
+ const max=Math.max(1,...values);
+ return `<div class="seven-bars">${days.map((d,i)=>`<div class="bar-col"><div class="bar-value">${values[i]}</div><div class="bar-track"><div class="bar-fill" style="height:${Math.max(values[i]?8:0,(values[i]/max)*100)}%"></div></div><div class="bar-day">${d.toLocaleDateString(undefined,{weekday:'short'}).slice(0,2)}</div></div>`).join('')}</div>`;
 }
 function activity(){
  const storeId=state.activityStore,metric=state.activityMetric;
@@ -332,6 +367,7 @@ document.addEventListener('click',async e=>{
   if(a==='edit-store'){state.sheet='store-edit';state.editId=el.dataset.id;render();return}
   if(a==='edit-product'){state.sheet='product-edit';state.editId=el.dataset.id;render();return}
   if(a==='edit-report'){state.sheet='report-edit';state.editId=el.dataset.id;render();return}
+  if(a==='export-excel'){if(currentMember()?.role!=='admin')return toast('Admin only');await exportAdminExcel();return}
   if(a==='indicator-add'){state.sheet='indicator-edit';state.editId=null;render();return}
   if(a==='indicator-edit'){state.sheet='indicator-edit';state.editId=el.dataset.id;render();return}
   if(a==='map-nearest'){
@@ -341,6 +377,7 @@ document.addEventListener('click',async e=>{
   if(a==='route-mode'){state.routeMode=!state.routeMode;if(!state.routeMode)state.routeSelected=[];render();return}
   if(a==='route-toggle-store'){toggleRouteStore(el.dataset.id);render();return}
   if(a==='route-clear'){state.routeSelected=[];render();return}
+  if(a==='route-open'){if(!state.routeSelected.length)return;state.sheet='route';render();return}
   if(a==='route-cancel'){state.routeMode=false;state.routeSelected=[];render();return}
   if(a==='route-build'){if(!state.routeSelected.length)return;state.sheet='route';render();return}
   if(a==='open-google-route'){const url=googleRouteUrl(routeSelectedStores());if(url)location.href=url;return}
