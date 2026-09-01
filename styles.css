@@ -43,3 +43,24 @@
 .admin-original{font-size:10px;color:var(--muted);padding:10px 0 14px;word-break:break-word}
 .admin-check{display:flex;gap:8px;align-items:center;border:1px solid var(--line);background:#0f1314;border-radius:13px;padding:11px;margin:12px 0;font-size:12px;font-weight:700}
 @media(min-width:620px){.admin-data-actions{grid-template-columns:repeat(4,1fr)}#store-preview-map{height:210px}}
+
+/* V1.5 map simplification, routing, Manage cleanup */
+.map-tools{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+.distance-disclosure{font-size:10px;line-height:1.45;color:var(--muted);background:rgba(255,255,255,.045);border:1px solid var(--line);border-radius:12px;padding:9px 10px;margin:0 0 10px}
+.route-bar{margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:16px;background:var(--card);display:grid;gap:10px}
+.route-bar small{display:block;color:var(--muted);font-size:10px;margin-top:2px}
+.route-bar-actions{display:flex;gap:8px;flex-wrap:wrap}
+.route-selected{outline:2px solid rgba(87,199,255,.6);outline-offset:-2px}
+.tcg-marker.route-selected-marker{box-shadow:0 0 0 4px rgba(87,199,255,.3),0 5px 16px rgba(0,0,0,.42)}
+.route-marker-check{position:absolute;right:-6px;top:-6px;width:18px;height:18px;border-radius:999px;background:#e9fbff;color:#071013;border:2px solid #071013;font-size:11px;display:grid;place-items:center;font-weight:900}
+.route-summary{display:grid;gap:8px;margin:12px 0}
+.route-stop{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:13px}
+.route-stop>span{width:28px;height:28px;border-radius:999px;background:rgba(255,255,255,.09);display:grid;place-items:center;font-weight:800}
+.route-stop small{display:block;color:var(--muted);font-size:10px;margin-top:2px}
+.manage-section{margin-top:8px}
+.manage-section-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;margin:8px 0 10px}
+.manage-section-head h3{margin:2px 0}
+.manage-kicker{font-size:9px;font-weight:900;letter-spacing:.13em;color:var(--muted)}
+.manage-divider{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent);margin:26px 0 20px}
+.manage-list-card{margin-top:10px}
+.lookup-status{min-height:16px;margin-top:6px}

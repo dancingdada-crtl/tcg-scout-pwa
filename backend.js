@@ -192,8 +192,10 @@ export async function setProductArchived(id,archived){const {error}=await supaba
 export async function saveAnalytics(name,config,userId){const {data,error}=await supabase.from('saved_analytics').insert({owner_id:userId,name,config_json:config}).select().single();if(error)throw error;return {id:data.id,name:data.name,ownerId:data.owner_id,...(data.config_json||{})};}
 
 export async function uploadProfileImage(userId,blob){
-  const path=`${userId}/avatar.jpg`;
-  const {error}=await supabase.storage.from('profile-images').upload(path,blob,{contentType:'image/jpeg',upsert:true,cacheControl:'3600'});if(error)throw error;return path;
+  const path=`${userId}/avatar-${Date.now()}.jpg`;
+  const {error}=await supabase.storage.from('profile-images').upload(path,blob,{contentType:'image/jpeg',upsert:false,cacheControl:'3600'});
+  if(error)throw error;
+  return path;
 }
 export async function updateMyProfile(username,displayName,avatarPath){const {error}=await supabase.rpc('update_my_profile',{p_username:username,p_display_name:displayName||null,p_avatar_path:avatarPath||null});if(error)throw error;}
 export async function uploadBrandIcon(blob){const path='app/app-icon.jpg';const {error}=await supabase.storage.from('app-branding').upload(path,blob,{contentType:'image/jpeg',upsert:true,cacheControl:'3600'});if(error)throw error;return path;}
