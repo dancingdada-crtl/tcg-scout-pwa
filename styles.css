@@ -64,3 +64,17 @@
 .manage-divider{height:1px;background:linear-gradient(90deg,transparent,var(--line),transparent);margin:26px 0 20px}
 .manage-list-card{margin-top:10px}
 .lookup-status{min-height:16px;margin-top:6px}
+
+/* ChaseDex V1.6 */
+.status-toggle-row{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:10px 0}
+.status-filter{border:1px solid var(--line);background:#101516;color:var(--text);border-radius:14px;padding:9px 7px;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:5px;opacity:.45}
+.status-filter.active{opacity:1;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.indicator-filter-row{display:flex;gap:7px;overflow-x:auto;padding:0 0 9px}
+.pin-emoji{position:absolute;left:19px;top:-7px;white-space:nowrap;background:#111;border-radius:10px;padding:1px 3px;font-size:12px}
+.manage-toggle{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.manage-item{width:100%;display:grid;grid-template-columns:1fr auto;align-items:center;text-align:left;padding:13px 4px;background:none;border:0;border-bottom:1px solid var(--line);color:var(--text)}
+.manage-item:last-child{border-bottom:0}.manage-item small{display:block;color:var(--muted);font-size:10px;margin-top:3px}
+.btn.danger{margin-top:10px;background:#2a1114;border:1px solid #6d2830;color:#ffb5bd}
+.indicator-admin-row{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
+.indicator-admin-row:last-child{border-bottom:0}.indicator-emoji{font-size:24px}.indicator-admin-row small,.change-row small{display:block;color:var(--muted);font-size:10px;margin-top:2px}
+.change-row{padding:10px 0;border-bottom:1px solid var(--line)}.change-row:last-child{border-bottom:0}

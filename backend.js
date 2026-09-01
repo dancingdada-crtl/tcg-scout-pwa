@@ -16,9 +16,9 @@ function publicUrl(bucket, path){
   return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
 }
 
-const mapStore = s => ({id:s.id,name:s.name,chain:s.chain||'',area:[s.city,s.state].filter(Boolean).join(', ')||'',address:s.address||'',city:s.city||'',state:s.state||'',postalCode:s.postal_code||'',lat:s.latitude==null?null:Number(s.latitude),lng:s.longitude==null?null:Number(s.longitude),active:s.active!==false,createdBy:s.created_by||null,createdAt:s.created_at,updatedAt:s.updated_at});
-const mapProduct = p => ({id:p.id,name:p.name,tcg:p.tcg,setName:p.set_name||'',sku:p.sku||p.upc||'',upc:p.upc||'',active:p.active!==false,createdBy:p.created_by||null,createdAt:p.created_at,updatedAt:p.updated_at});
-const mapReport = r => ({id:r.id,storeId:r.store_id,productId:r.product_id||null,memberId:r.member_id||null,status:r.status,flags:{line:!!r.people_lining_up,possible:!!r.possible_restock,evidence:!!r.restock_evidence},period:r.time_bucket,source:sourceFromDb(r.source_type),sourceDetail:r.source_detail||'',notes:r.notes||'',price:r.price==null?null:Number(r.price),condition:conditionFromDb(r.condition),evidenceUrl:r.evidence_url||'',occurredAt:r.occurred_at,occurredApprox:!!r.occurred_at_is_approx,createdAt:r.created_at,updatedAt:r.updated_at});
+const mapStore = s => ({id:s.id,name:s.name,chain:s.chain||'',area:[s.city,s.state].filter(Boolean).join(', ')||'',address:s.address||'',city:s.city||'',state:s.state||'',postalCode:s.postal_code||'',lat:s.latitude==null?null:Number(s.latitude),lng:s.longitude==null?null:Number(s.longitude),active:s.active!==false&&!s.deleted_at,deletedAt:s.deleted_at||null,createdBy:s.created_by||null,createdAt:s.created_at,updatedAt:s.updated_at});
+const mapProduct = p => ({id:p.id,name:p.name,tcg:p.tcg,setName:p.set_name||'',sku:p.sku||p.upc||'',upc:p.upc||'',active:p.active!==false&&!p.deleted_at,deletedAt:p.deleted_at||null,createdBy:p.created_by||null,createdAt:p.created_at,updatedAt:p.updated_at});
+const mapReport = r => ({id:r.id,storeId:r.store_id,productId:r.product_id||null,memberId:r.member_id||null,status:r.status,flags:{line:!!r.people_lining_up,possible:!!r.possible_restock,evidence:!!r.restock_evidence},indicatorIds:[],period:r.time_bucket,source:sourceFromDb(r.source_type),sourceDetail:r.source_detail||'',notes:r.notes||'',price:r.price==null?null:Number(r.price),condition:conditionFromDb(r.condition),evidenceUrl:r.evidence_url||'',occurredAt:r.occurred_at,occurredApprox:!!r.occurred_at_is_approx,createdAt:r.created_at,updatedAt:r.updated_at,deletedAt:r.deleted_at||null});
 
 async function q(promise){const {data,error}=await promise;if(error)throw error;return data||[]}
 
@@ -137,7 +137,7 @@ export async function loadSharedData(session=null){
   const meProfile=profileRows[0];
   if(!meProfile) throw new Error('Your member profile has not been created yet.');
 
-  const [stores,products,reports,saved,tiers,profiles,rankings,feedback]=await Promise.all([
+  const [stores,products,reports,saved,tiers,profiles,rankings,feedback,indicators,reportIndicators]=await Promise.all([
     q(supabase.from('stores').select('*').order('name')),
     q(supabase.from('products').select('*').order('name')),
     q(supabase.from('reports').select('*').order('occurred_at',{ascending:false}).limit(3000)),
@@ -145,7 +145,9 @@ export async function loadSharedData(session=null){
     q(supabase.from('ranking_tiers').select('*').order('min_points')),
     q(supabase.from('profiles').select('id,username,display_name,avatar_path,role,created_at')),
     q(supabase.from('member_contribution_rankings').select('*')),
-    q(supabase.from('report_feedback').select('*'))
+    q(supabase.from('report_feedback').select('*')),
+    q(supabase.from('report_indicators_catalog').select('*').order('sort_order')),
+    q(supabase.from('report_indicator_values').select('*'))
   ]);
 
   let adminActivity=[];
@@ -173,14 +175,21 @@ export async function loadSharedData(session=null){
   baseSettings.rankingTitles=tiers.map(t=>({id:t.id,min:Number(t.min_points),title:t.title}));
   const feedbackByReport=new Map();
   for(const f of feedback){const x=feedbackByReport.get(f.report_id)||{confirmations:0,disputes:0,myFeedback:null};if(f.feedback==='confirm')x.confirmations++;else if(f.feedback==='dispute')x.disputes++;if(f.member_id===session.user.id)x.myFeedback=f.feedback;feedbackByReport.set(f.report_id,x)}
-  const mappedReports=reports.map(mapReport).map(r=>({...r,...(feedbackByReport.get(r.id)||{confirmations:0,disputes:0,myFeedback:null})}));
+  const indicatorMap=new Map();
+  for(const ri of reportIndicators){const a=indicatorMap.get(ri.report_id)||[];a.push(ri.indicator_id);indicatorMap.set(ri.report_id,a)}
+  const mappedReports=reports.map(mapReport).map(r=>({...r,indicatorIds:indicatorMap.get(r.id)||[],...(feedbackByReport.get(r.id)||{confirmations:0,disputes:0,myFeedback:null})}));
   const savedFilters=saved.map(s=>({id:s.id,name:s.name,ownerId:s.owner_id,...(s.config_json||{})}));
-  return {version:1.3,stores:stores.map(mapStore),products:products.map(mapProduct),reports:mappedReports,members,savedFilters,settings:baseSettings};
+  const mappedIndicators=indicators.map(i=>({id:i.id,label:i.label,emoji:i.emoji,active:i.active!==false,sortOrder:Number(i.sort_order||0)}));
+  let changeLog=[];
+  if(meProfile.role==='admin') changeLog=await q(supabase.from('chasedex_change_log').select('*').order('changed_at',{ascending:false}).limit(1000));
+  return {version:1.6,stores:stores.map(mapStore),products:products.map(mapProduct),reports:mappedReports,members,savedFilters,indicators:mappedIndicators,changeLog,settings:baseSettings};
 }
 
 export async function createReport(r){
-  const payload={store_id:r.storeId,product_id:r.productId||null,member_id:r.memberId,status:r.status,time_bucket:r.period,people_lining_up:!!r.flags?.line,possible_restock:!!r.flags?.possible,restock_evidence:!!r.flags?.evidence,source_type:sourceToDb(r.source),source_detail:r.sourceDetail||null,notes:r.notes||null,price:r.price,condition:conditionToDb(r.condition),occurred_at:r.occurredAt,occurred_at_is_approx:!!r.occurredApprox};
-  const {data,error}=await supabase.from('reports').insert(payload).select().single();if(error)throw error;return mapReport(data);
+  const payload={store_id:r.storeId,product_id:r.productId||null,member_id:r.memberId,status:r.status,time_bucket:r.period,people_lining_up:false,possible_restock:false,restock_evidence:false,source_type:sourceToDb(r.source),source_detail:r.sourceDetail||null,notes:r.notes||null,price:r.price,condition:conditionToDb(r.condition),occurred_at:r.occurredAt,occurred_at_is_approx:!!r.occurredApprox};
+  const {data,error}=await supabase.from('reports').insert(payload).select().single();if(error)throw error;
+  if(r.indicatorIds?.length){const {error:ie}=await supabase.from('report_indicator_values').insert(r.indicatorIds.map(indicator_id=>({report_id:data.id,indicator_id})));if(ie)throw ie}
+  return {...mapReport(data),indicatorIds:r.indicatorIds||[]};
 }
 export async function createStore(s,userId){
   const payload={name:s.name,chain:s.chain||'Member added',address:s.address||null,city:s.city||null,state:s.state||null,postal_code:s.postalCode||null,latitude:s.lat,longitude:s.lng,created_by:userId};
@@ -248,6 +257,25 @@ export async function adminUpdateReport(id,r){
   if(error)throw error;
 }
 
+
+export async function updateStore(id,s){
+  const {error}=await supabase.from('stores').update({name:s.name,chain:s.chain||null,address:s.address||null,city:s.city||null,state:s.state||null,postal_code:s.postalCode||null,latitude:s.lat,longitude:s.lng,active:true}).eq('id',id);if(error)throw error;
+}
+export async function deleteStore(id){const {error}=await supabase.from('stores').update({deleted_at:new Date().toISOString(),active:false}).eq('id',id);if(error)throw error;}
+export async function updateProduct(id,p){const {error}=await supabase.from('products').update({name:p.name,tcg:p.tcg,set_name:p.setName||null,sku:p.sku||null,upc:p.upc||null,active:true}).eq('id',id);if(error)throw error;}
+export async function deleteProduct(id){const {error}=await supabase.from('products').update({deleted_at:new Date().toISOString(),active:false}).eq('id',id);if(error)throw error;}
+export async function updateReport(id,r){
+  const payload={store_id:r.storeId,product_id:r.productId||null,status:r.status,time_bucket:r.period,source_type:sourceToDb(r.source),source_detail:r.sourceDetail||null,notes:r.notes||null,price:r.price,condition:conditionToDb(r.condition),occurred_at:r.occurredAt,occurred_at_is_approx:!!r.occurredApprox};
+  const {error}=await supabase.from('reports').update(payload).eq('id',id);if(error)throw error;
+  const {error:de}=await supabase.from('report_indicator_values').delete().eq('report_id',id);if(de)throw de;
+  if(r.indicatorIds?.length){const {error:ie}=await supabase.from('report_indicator_values').insert(r.indicatorIds.map(indicator_id=>({report_id:id,indicator_id})));if(ie)throw ie}
+}
+export async function deleteReport(id){const {error}=await supabase.from('reports').update({deleted_at:new Date().toISOString()}).eq('id',id);if(error)throw error;}
+export async function saveIndicator(i){
+  if(i.id){const {error}=await supabase.from('report_indicators_catalog').update({label:i.label,emoji:i.emoji,active:i.active!==false,sort_order:i.sortOrder||0}).eq('id',i.id);if(error)throw error;return}
+  const {error}=await supabase.from('report_indicators_catalog').insert({label:i.label,emoji:i.emoji,active:true,sort_order:i.sortOrder||0});if(error)throw error;
+}
+export async function deleteIndicator(id){const {error}=await supabase.from('report_indicators_catalog').update({active:false}).eq('id',id);if(error)throw error;}
 export async function setReportFeedback(reportId,memberId,feedback){const {error}=await supabase.from('report_feedback').upsert({report_id:reportId,member_id:memberId,feedback},{onConflict:'report_id,member_id'});if(error)throw error;}
 
 export function subscribeRealtime(onChange){
@@ -259,6 +287,8 @@ export function subscribeRealtime(onChange){
     .on('postgres_changes',{event:'*',schema:'public',table:'report_feedback'},onChange)
     .on('postgres_changes',{event:'*',schema:'public',table:'ranking_tiers'},onChange)
     .on('postgres_changes',{event:'*',schema:'public',table:'app_settings'},onChange)
+    .on('postgres_changes',{event:'*',schema:'public',table:'report_indicators_catalog'},onChange)
+    .on('postgres_changes',{event:'*',schema:'public',table:'report_indicator_values'},onChange)
     .subscribe();
   return channel;
 }
