@@ -137,7 +137,7 @@ function magicLinkSentModal(){
 }
 function loginView(){
  if(!backendConfigured)return `<div class="login"><div class="login-card">${localBrandIcon('large')}<h1>Supabase setup needed</h1><p>ChaseDex needs your Supabase Project URL and publishable key in <b>supabase-config.js</b>.</p><div class="demo-note">Never use the service_role/secret key in this file.</div></div></div>`;
- const headline='Hunt cards. Chase trends. Know what’s next.
+ const headline='Hunt cards. Chase trends. Know what’s next. Live local data and colloctor – powered insights from ChaseDex.'
 
 Live local data and collector-powered insights from ChaseDex.',access='Use a Magic Link for your first sign-in. Then create a password for future access.';
  if(state.inviteStep)return `<div class="login"><div class="login-card">${localBrandIcon('large')}<h1>Join ${esc(appName())}</h1><p>Enter the invite code a ChaseDex member shared with you.</p>${loginNotice?`<div class="login-notice">${esc(loginNotice)}</div>`:''}<div class="field"><label>Invite code</label><input id="invite-code" value="${esc(state.inviteCode)}" placeholder="CHASE-ABC123" autocomplete="one-time-code"></div><div class="field"><label>Email</label><input id="invite-email-login" type="email" value="${esc(pendingEmail)}" placeholder="you@example.com" autocomplete="email"></div><button class="btn wide" data-action="invite-magic-login">Validate code & send Magic Link</button><button class="btn secondary wide" data-action="invite-back">Back to sign in</button><div class="demo-note">Invite codes are single-use and expire after 7 days.</div></div></div>`;
