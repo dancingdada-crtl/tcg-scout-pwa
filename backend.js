@@ -16,9 +16,9 @@ function publicUrl(bucket, path){
   return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
 }
 
-const mapStore = s => ({id:s.id,name:s.name,chain:s.chain||'',area:[s.city,s.state].filter(Boolean).join(', ')||'',address:s.address||'',city:s.city||'',state:s.state||'',postalCode:s.postal_code||'',lat:s.latitude==null?null:Number(s.latitude),lng:s.longitude==null?null:Number(s.longitude),active:s.active!==false&&!s.deleted_at,deletedAt:s.deleted_at||null,createdBy:s.created_by||null,createdAt:s.created_at,updatedAt:s.updated_at});
+const mapStore = s => ({id:s.id,name:s.name,storeType:s.store_type||'Retail Chain',chain:s.chain||'',area:[s.city,s.state].filter(Boolean).join(', ')||'',address:s.address||'',city:s.city||'',state:s.state||'',postalCode:s.postal_code||'',lat:s.latitude==null?null:Number(s.latitude),lng:s.longitude==null?null:Number(s.longitude),active:s.active!==false&&!s.deleted_at,deletedAt:s.deleted_at||null,createdBy:s.created_by||null,createdAt:s.created_at,updatedAt:s.updated_at});
 const mapProduct = p => ({id:p.id,name:p.name,tcg:p.tcg,setName:p.set_name||'',sku:p.sku||p.upc||'',upc:p.upc||'',active:p.active!==false&&!p.deleted_at,deletedAt:p.deleted_at||null,createdBy:p.created_by||null,createdAt:p.created_at,updatedAt:p.updated_at});
-const mapReport = r => ({id:r.id,storeId:r.store_id,productId:r.product_id||null,memberId:r.member_id||null,status:r.status,flags:{line:!!r.people_lining_up,possible:!!r.possible_restock,evidence:!!r.restock_evidence},indicatorIds:[],period:r.time_bucket,source:sourceFromDb(r.source_type),sourceDetail:r.source_detail||'',notes:r.notes||'',price:r.price==null?null:Number(r.price),condition:conditionFromDb(r.condition),evidenceUrl:r.evidence_url||'',occurredAt:r.occurred_at,occurredApprox:!!r.occurred_at_is_approx,createdAt:r.created_at,updatedAt:r.updated_at,deletedAt:r.deleted_at||null});
+const mapReport = r => ({id:r.id,dropEventId:r.drop_event_id||null,storeId:r.store_id,productId:r.product_id||null,memberId:r.member_id||null,status:r.status,flags:{line:!!r.people_lining_up,possible:!!r.possible_restock,evidence:!!r.restock_evidence},indicatorIds:[],period:r.time_bucket,source:sourceFromDb(r.source_type),sourceDetail:r.source_detail||'',notes:r.notes||'',price:r.price==null?null:Number(r.price),condition:conditionFromDb(r.condition),evidenceUrl:r.evidence_url||'',occurredAt:r.occurred_at,occurredApprox:!!r.occurred_at_is_approx,createdAt:r.created_at,updatedAt:r.updated_at,deletedAt:r.deleted_at||null});
 
 async function q(promise){const {data,error}=await promise;if(error)throw error;return data||[]}
 
@@ -128,9 +128,9 @@ export async function loadSharedData(session=null){
   if(!supabase) throw new Error('Supabase is not configured.');
   const settingsRows=await q(supabase.from('app_settings').select('*').limit(1));
   const setting=settingsRows[0]||{app_name:'ChaseDex',app_icon_path:null};
-  const baseSettings={periods:['Morning','Noon','Afternoon','Evening'],appName:(!setting.app_name||setting.app_name==='TCG Scout')?'ChaseDex':setting.app_name,appIcon:publicUrl('app-branding',setting.app_icon_path),appIconPath:setting.app_icon_path||null,loginHeadline:setting.login_headline||'Fast local restock, price and activity intelligence for your group.',loginAccessMessage:setting.login_access_message||'Member signup is invite-only. Use your password for normal sign-in. Magic Link remains available for first-time access or recovery.',appVersion:setting.app_version||'1.8.0',releaseMessage:setting.release_message||'',reinstallRequired:setting.reinstall_required!==false,rankingTitles:[]};
+  const baseSettings={periods:['Morning','Noon','Afternoon','Evening'],appName:(!setting.app_name||setting.app_name==='TCG Scout')?'ChaseDex':setting.app_name,appIcon:publicUrl('app-branding',setting.app_icon_path),appIconPath:setting.app_icon_path||null,loginHeadline:setting.login_headline||'Fast local restock, price and activity intelligence for your group.',loginAccessMessage:setting.login_access_message||'Member signup is invite-only. Use your password for normal sign-in. Magic Link remains available for first-time access or recovery.',appVersion:setting.app_version||'1.9.0',rankingTitles:[]};
 
-  if(!session) return {version:1.8,stores:[],products:[],reports:[],members:[],savedFilters:[],indicators:[],invites:[],changeLog:[],settings:baseSettings};
+  if(!session) return {version:1.9,stores:[],products:[],reports:[],members:[],savedFilters:[],indicators:[],invites:[],changeLog:[],dropEvents:[],dropWatches:[],settings:baseSettings};
 
   const profileRows=await q(supabase.from('profiles').select('*').eq('id',session.user.id).limit(1));
   const meProfile=profileRows[0];
@@ -182,19 +182,23 @@ export async function loadSharedData(session=null){
   let changeLog=[];
   if(meProfile.role==='admin') changeLog=await q(supabase.from('chasedex_change_log').select('*').order('changed_at',{ascending:false}).limit(1000));
   const inviteRows=await q(supabase.from('member_invites').select('*').order('created_at',{ascending:false}).limit(meProfile.role==='admin'?500:50));
+  const dropEvents=await q(supabase.from('drop_events').select('*').order('starts_at',{ascending:true}));
+  const dropWatches=await q(supabase.from('drop_watches').select('*').eq('member_id',session.user.id));
   const memberNames=new Map(members.map(m=>[m.id,m.name]));
   const invites=inviteRows.map(i=>({id:i.id,code:i.code,label:i.invitee_label||'',createdBy:i.created_by,creatorName:memberNames.get(i.created_by)||'Member',createdAt:i.created_at,expiresAt:i.expires_at,redeemedAt:i.redeemed_at,redeemedEmail:i.redeemed_email||'',revokedAt:i.revoked_at}));
-  return {version:1.8,stores:stores.map(mapStore),products:products.map(mapProduct),reports:mappedReports,members,savedFilters,indicators:mappedIndicators,invites,changeLog,settings:baseSettings};
+  const mappedDropEvents=dropEvents.map(e=>({id:e.id,title:e.title||'',eventType:e.event_type,storeId:e.store_id,productId:e.product_id||null,startsAt:e.starts_at,sourceType:e.source_type,confidence:e.confidence,price:e.price==null?null:Number(e.price),purchaseRules:e.purchase_rules||'',notes:e.notes||'',deletedAt:e.deleted_at||null}));
+  const mappedDropWatches=dropWatches.map(w=>({id:w.id,dropEventId:w.drop_event_id,memberId:w.member_id}));
+  return {version:1.9,stores:stores.map(mapStore),products:products.map(mapProduct),reports:mappedReports,members,savedFilters,indicators:mappedIndicators,invites,changeLog,dropEvents:mappedDropEvents,dropWatches:mappedDropWatches,settings:baseSettings};
 }
 
 export async function createReport(r){
-  const payload={store_id:r.storeId,product_id:r.productId||null,member_id:r.memberId,status:r.status,time_bucket:r.period,people_lining_up:false,possible_restock:false,restock_evidence:false,source_type:sourceToDb(r.source),source_detail:r.sourceDetail||null,notes:r.notes||null,price:r.price,condition:conditionToDb(r.condition),occurred_at:r.occurredAt,occurred_at_is_approx:!!r.occurredApprox};
+  const payload={store_id:r.storeId,product_id:r.productId||null,drop_event_id:r.dropEventId||null,member_id:r.memberId,status:r.status,time_bucket:r.period,people_lining_up:false,possible_restock:false,restock_evidence:false,source_type:sourceToDb(r.source),source_detail:r.sourceDetail||null,notes:r.notes||null,price:r.price,condition:conditionToDb(r.condition),occurred_at:r.occurredAt,occurred_at_is_approx:!!r.occurredApprox};
   const {data,error}=await supabase.from('reports').insert(payload).select().single();if(error)throw error;
   if(r.indicatorIds?.length){const {error:ie}=await supabase.from('report_indicator_values').insert(r.indicatorIds.map(indicator_id=>({report_id:data.id,indicator_id})));if(ie)throw ie}
   return {...mapReport(data),indicatorIds:r.indicatorIds||[]};
 }
 export async function createStore(s,userId){
-  const payload={name:s.name,chain:s.chain||'Member added',address:s.address||null,city:s.city||null,state:s.state||null,postal_code:s.postalCode||null,latitude:s.lat,longitude:s.lng,created_by:userId};
+  const payload={name:s.name,chain:s.chain||'Member added',address:s.address||null,city:s.city||null,state:s.state||null,postal_code:s.postalCode||null,latitude:s.lat,longitude:s.lng,store_type:s.storeType||'Retail Chain',created_by:userId};
   const {data,error}=await supabase.from('stores').insert(payload).select().single();if(error)throw error;return mapStore(data);
 }
 export async function setStoreArchived(id,archived){const {error}=await supabase.rpc('set_store_archived',{p_store_id:id,p_archived:archived});if(error)throw error;}
@@ -261,13 +265,13 @@ export async function adminUpdateReport(id,r){
 
 
 export async function updateStore(id,s){
-  const {error}=await supabase.from('stores').update({name:s.name,chain:s.chain||null,address:s.address||null,city:s.city||null,state:s.state||null,postal_code:s.postalCode||null,latitude:s.lat,longitude:s.lng,active:true}).eq('id',id);if(error)throw error;
+  const {error}=await supabase.from('stores').update({name:s.name,chain:s.chain||null,address:s.address||null,city:s.city||null,state:s.state||null,postal_code:s.postalCode||null,latitude:s.lat,longitude:s.lng,store_type:s.storeType||'Retail Chain',active:true}).eq('id',id);if(error)throw error;
 }
 export async function deleteStore(id){const {error}=await supabase.from('stores').update({deleted_at:new Date().toISOString(),active:false}).eq('id',id);if(error)throw error;}
 export async function updateProduct(id,p){const {error}=await supabase.from('products').update({name:p.name,tcg:p.tcg,set_name:p.setName||null,sku:p.sku||null,upc:p.upc||null,active:true}).eq('id',id);if(error)throw error;}
 export async function deleteProduct(id){const {error}=await supabase.from('products').update({deleted_at:new Date().toISOString(),active:false}).eq('id',id);if(error)throw error;}
 export async function updateReport(id,r){
-  const payload={store_id:r.storeId,product_id:r.productId||null,status:r.status,time_bucket:r.period,source_type:sourceToDb(r.source),source_detail:r.sourceDetail||null,notes:r.notes||null,price:r.price,condition:conditionToDb(r.condition),occurred_at:r.occurredAt,occurred_at_is_approx:!!r.occurredApprox};
+  const payload={store_id:r.storeId,product_id:r.productId||null,drop_event_id:r.dropEventId||null,status:r.status,time_bucket:r.period,source_type:sourceToDb(r.source),source_detail:r.sourceDetail||null,notes:r.notes||null,price:r.price,condition:conditionToDb(r.condition),occurred_at:r.occurredAt,occurred_at_is_approx:!!r.occurredApprox};
   const {error}=await supabase.from('reports').update(payload).eq('id',id);if(error)throw error;
   const {error:de}=await supabase.from('report_indicator_values').delete().eq('report_id',id);if(de)throw de;
   if(r.indicatorIds?.length){const {error:ie}=await supabase.from('report_indicator_values').insert(r.indicatorIds.map(indicator_id=>({report_id:id,indicator_id})));if(ie)throw ie}
@@ -279,6 +283,11 @@ export async function saveIndicator(i){
 }
 export async function deleteIndicator(id){const {error}=await supabase.from('report_indicators_catalog').update({active:false}).eq('id',id);if(error)throw error;}
 export async function setReportFeedback(reportId,memberId,feedback){const {error}=await supabase.from('report_feedback').upsert({report_id:reportId,member_id:memberId,feedback},{onConflict:'report_id,member_id'});if(error)throw error;}
+
+export async function createDropEvent(e){const {data,error}=await supabase.from('drop_events').insert({event_type:e.eventType,store_id:e.storeId,product_id:e.productId||null,starts_at:e.startsAt,source_type:e.sourceType,confidence:e.confidence,price:e.price,purchase_rules:e.purchaseRules||null,notes:e.notes||null,created_by:(await supabase.auth.getUser()).data.user?.id}).select().single();if(error)throw error;return data}
+export async function toggleDropWatch(dropEventId,memberId){const {data,error}=await supabase.from('drop_watches').select('id').eq('drop_event_id',dropEventId).eq('member_id',memberId).maybeSingle();if(error)throw error;if(data?.id){const {error:e}=await supabase.from('drop_watches').delete().eq('id',data.id);if(e)throw e}else{const {error:e}=await supabase.from('drop_watches').insert({drop_event_id:dropEventId,member_id:memberId});if(e)throw e}}
+export async function permanentDeleteReport(id){const {error}=await supabase.rpc('admin_permanent_delete_report',{p_report_id:id});if(error)throw error}
+export async function permanentDeleteChangeLog(id){const {error}=await supabase.rpc('admin_permanent_delete_change_log',{p_log_id:id});if(error)throw error}
 
 export function subscribeRealtime(onChange){
   if(!supabase) return null;
@@ -292,6 +301,8 @@ export function subscribeRealtime(onChange){
     .on('postgres_changes',{event:'*',schema:'public',table:'report_indicators_catalog'},onChange)
     .on('postgres_changes',{event:'*',schema:'public',table:'report_indicator_values'},onChange)
     .on('postgres_changes',{event:'*',schema:'public',table:'member_invites'},onChange)
+    .on('postgres_changes',{event:'*',schema:'public',table:'drop_events'},onChange)
+    .on('postgres_changes',{event:'*',schema:'public',table:'drop_watches'},onChange)
     .subscribe();
   return channel;
 }
