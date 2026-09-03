@@ -87,6 +87,21 @@ export async function sendMagicLink(email){
   if(error) throw error;
 }
 
+
+export async function signUpWithInvite(email,password,inviteCode,username){
+  if(!supabase) throw new Error('Supabase is not configured.');
+  const redirectTo=location.origin+location.pathname;
+  const {data,error}=await supabase.auth.signUp({email,password,options:{emailRedirectTo:redirectTo,data:{invite_code:inviteCode,username}}});
+  if(error) throw error;
+  return {user:data?.user||null,session:data?.session||null};
+}
+
+export async function sendPasswordReset(email){
+  if(!supabase) throw new Error('Supabase is not configured.');
+  const redirectTo=location.origin+location.pathname;
+  const {error}=await supabase.auth.resetPasswordForEmail(email,{redirectTo});
+  if(error) throw error;
+}
 export async function validateInviteCode(code){if(!supabase)throw new Error('Supabase is not configured.');const {data,error}=await supabase.rpc('validate_member_invite',{p_code:code});if(error)throw error;if(!data)throw new Error('Invite code is invalid, expired, used, or revoked.');return true;}
 export async function sendInviteMagicLink(email,code){if(!supabase)throw new Error('Supabase is not configured.');const redirectTo=location.origin+location.pathname;const {error}=await supabase.auth.signInWithOtp({email,options:{emailRedirectTo:redirectTo,shouldCreateUser:true,data:{invite_code:code}}});if(error)throw error;}
 export async function createInviteCode(label=''){const {data,error}=await supabase.rpc('create_member_invite',{p_label:label||null});if(error)throw error;return {id:data.id,code:data.code,label:data.invitee_label||'',createdAt:data.created_at,expiresAt:data.expires_at};}
@@ -128,7 +143,7 @@ export async function loadSharedData(session=null){
   if(!supabase) throw new Error('Supabase is not configured.');
   const settingsRows=await q(supabase.from('app_settings').select('*').limit(1));
   const setting=settingsRows[0]||{app_name:'ChaseDex',app_icon_path:null};
-  const baseSettings={periods:['Morning','Noon','Afternoon','Evening'],appName:(!setting.app_name||setting.app_name==='TCG Scout')?'ChaseDex':setting.app_name,appIcon:publicUrl('app-branding',setting.app_icon_path),appIconPath:setting.app_icon_path||null,loginHeadline:setting.login_headline||'Fast local restock, price and activity intelligence for your group.',loginAccessMessage:setting.login_access_message||'Member signup is invite-only. Use your password for normal sign-in. Magic Link remains available for first-time access or recovery.',appVersion:setting.app_version||'1.9.0',rankingTitles:[]};
+  const baseSettings={periods:['Morning','Noon','Afternoon','Evening'],appName:(!setting.app_name||setting.app_name==='TCG Scout')?'ChaseDex':setting.app_name,appIcon:publicUrl('app-branding',setting.app_icon_path),appIconPath:setting.app_icon_path||null,loginHeadline:setting.login_headline||'Fast local restock, price and activity intelligence for your group.',loginAccessMessage:setting.login_access_message||'Member signup is invite-only. Use your password for normal sign-in. Magic Link remains available for first-time access or recovery.',appVersion:setting.app_version||'1.9.2',rankingTitles:[]};
 
   if(!session) return {version:1.9,stores:[],products:[],reports:[],members:[],savedFilters:[],indicators:[],invites:[],changeLog:[],dropEvents:[],dropWatches:[],settings:baseSettings};
 
