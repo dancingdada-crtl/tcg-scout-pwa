@@ -110,3 +110,38 @@
 /* V1.9.2 header account controls */
 .top-actions{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
 @media(max-width:619px){.top-actions .pill{padding:7px 9px;font-size:11px}.brandrow{align-items:flex-start}}
+
+/* ChaseDex V2.0 visual foundation — mockup-aligned layout, existing functionality preserved */
+:root{
+ --bg:#080b0f;--panel:#10151b;--card:#141a21;--line:#252c36;--border:#252c36;
+ --text:#f6f7fb;--muted:#939ba8;--accent:#8d46e8;--accent2:#a45cff;
+}
+html,body{background:var(--bg);color:var(--text)}
+body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.shell{min-height:100dvh;background:linear-gradient(180deg,#090c10 0%,#080b0f 100%)}
+main{width:min(100%,720px);margin:0 auto;padding-bottom:86px}
+.topbar{position:sticky;top:0;z-index:900;background:rgba(8,11,15,.96);backdrop-filter:blur(14px);border-bottom:1px solid #171c23}
+.brandrow{width:min(100%,720px);margin:auto;padding:10px 14px;gap:10px}
+.brand{gap:8px}.brand-icon{width:30px;height:30px;border-radius:8px}.brand .title{font-size:18px;line-height:1;font-weight:900;letter-spacing:-.5px}.brand .subtitle{display:none}
+.top-actions{gap:3px}.top-actions .pill{background:transparent;border:0;padding:7px 6px;color:#e5e7eb;font-size:11px}.top-actions .pill:hover{background:#151a21}
+.section{padding:15px 14px 5px}.section+.section{padding-top:7px}.section-head{margin-bottom:11px}.section-head h2{font-size:21px;letter-spacing:-.35px}.section-head h3{font-size:16px}.tiny{color:var(--muted)}
+.card,.store-list-card{background:linear-gradient(180deg,#151b22,#12171d);border:1px solid var(--line);border-radius:13px;box-shadow:none}
+.card{padding:13px;margin-bottom:10px}.store-list-card{margin-bottom:8px}
+.btn{background:linear-gradient(180deg,#9851ec,#7931d0);border:1px solid #9f59ef;color:white;border-radius:7px;min-height:42px;font-weight:800}.btn.secondary{background:#171c23;border-color:#2a313b;color:#f3f4f6}
+.pill,.chip{background:#171c23;border:1px solid #2a313b;color:#f1f3f6;border-radius:7px}.chip.active,.pill.active{background:linear-gradient(180deg,#9147e5,#7731c9);border-color:#9e58eb;color:white}
+.field label{font-size:11px;color:#d6dae0;margin-bottom:6px}input,select,textarea{background:#10151b!important;border:1px solid #2a313b!important;color:#f4f6f8!important;border-radius:6px!important;min-height:42px}input::placeholder,textarea::placeholder{color:#69717d}
+.login{background:radial-gradient(circle at 50% 16%,rgba(141,70,232,.10),transparent 28%),#080b0f;padding:24px 18px}.login-card{width:min(100%,390px);background:transparent;border:0;box-shadow:none;padding:24px 8px}.login-card .brand-icon.large,.login-card .local-brand-icon.large{width:86px;height:86px;margin-bottom:14px}.login-card h1{font-size:34px;letter-spacing:-1px;margin:6px 0}.login-card>p{font-size:13px;color:#c5cad2;margin:0 0 25px}.login-card .field{text-align:left}.login-card .btn{margin-top:4px}.login-divider:before,.login-divider:after{background:#202630}.demo-note{background:transparent;border:0;color:var(--muted);padding:10px 2px}
+.bottom-nav{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:min(100%,720px);z-index:850;background:rgba(10,13,17,.98);border-top:1px solid #202630;padding:5px 4px calc(5px + env(safe-area-inset-bottom));gap:0}.nav-btn{background:transparent;border:0;color:#7f8793;font-size:9px;font-weight:700;min-width:0;padding:5px 1px}.nav-btn.active{color:#a75df4}.nav-icon{font-size:17px;margin-bottom:2px}
+.map-wrap{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#10151b}.map-wrap #map{min-height:315px}.status-toggle-row,.indicator-filter-row{gap:6px}.status-filter,.indicator-filter{background:#141a21!important;border-color:#252c36!important;border-radius:7px!important;font-size:10px!important}
+.store-main{padding:11px}.store-main b{font-size:13px}.store-main small{color:#8f98a5}.store-view,.route-check{border-color:#252c36}
+.range-row,.filter-row,.analytics-modes,.manage-toggle{gap:6px}.range-row .chip,.analytics-modes .chip,.manage-toggle .chip{flex:1;text-align:center;justify-content:center}
+.activity-row,.ranking-row,.manage-item,.change-row,.invite-row{border-color:#252c36}.activity-row{background:#141a21;border:1px solid #252c36;border-radius:11px;margin-bottom:8px;padding:12px}.activity-row small{color:#9099a5}
+.analytics-builder{padding:12px}.time-heat{gap:4px}.time-heat i{border-radius:4px;padding:10px 2px}.window-card{background:#141a21;border-color:#252c36;border-radius:11px}.confidence-note{color:#8f98a5}
+.drop-watch-card{padding:13px}.drop-watch-card small{color:#929aa6}.drop-analysis{border-color:#252c36}
+.manage-list-card{padding:0;overflow:hidden}.manage-item{padding:15px 13px}.manage-item span:first-child{display:flex;flex-direction:column;gap:3px}.manage-item small{color:#929aa6}
+.ranking-list{padding:2px 12px}.ranking-row{padding:12px 0}.rank-num{color:#a75df4;font-weight:900}
+.sheet{background:rgba(0,0,0,.72);backdrop-filter:blur(4px)}.sheet-card{background:#0f141a;border:1px solid #2a313b;border-radius:18px 18px 0 0;box-shadow:0 -16px 50px rgba(0,0,0,.45)}.flow-sheet .sheet-card{border-radius:0;max-width:720px}.sheet-title{border-color:#252c36}.close{background:#171c23;color:#f4f6f8;border:1px solid #2a313b}
+.quick-report .radio-grid label span{background:#141a21;border-color:#2a313b;border-radius:7px}.quick-report .radio-grid input:checked+span{background:#1b3424}.product-wheel-item{background:#141a21;border-color:#2a313b;border-radius:11px}.drop-details{border-color:#2a313b;background:#0d1217}
+.toast{background:#171c23;border:1px solid #343c48;color:#fff}
+.empty{background:#10151b;border:1px dashed #2a313b;border-radius:12px;color:#9099a5;padding:22px 14px;text-align:center}
+@media(max-width:420px){.section{padding-left:11px;padding-right:11px}.brandrow{padding-left:11px;padding-right:8px}.brand .title{font-size:17px}.top-actions .pill{font-size:10px;padding:7px 5px}.map-wrap #map{min-height:300px}.two-col{gap:8px}}
