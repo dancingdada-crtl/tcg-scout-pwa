@@ -201,7 +201,7 @@ export async function loadSharedData(session=null){
   const dropWatches=await q(supabase.from('drop_watches').select('*').eq('member_id',session.user.id));
   const memberNames=new Map(members.map(m=>[m.id,m.name]));
   const invites=inviteRows.map(i=>({id:i.id,code:i.code,label:i.invitee_label||'',createdBy:i.created_by,creatorName:memberNames.get(i.created_by)||'Member',createdAt:i.created_at,expiresAt:i.expires_at,redeemedAt:i.redeemed_at,redeemedEmail:i.redeemed_email||'',revokedAt:i.revoked_at}));
-  const mappedDropEvents=dropEvents.map(e=>({id:e.id,title:e.title||'',eventType:e.event_type,storeId:e.store_id,productId:e.product_id||null,startsAt:e.starts_at,sourceType:e.source_type,confidence:e.confidence,price:e.price==null?null:Number(e.price),purchaseRules:e.purchase_rules||'',notes:e.notes||'',deletedAt:e.deleted_at||null}));
+  const mappedDropEvents=dropEvents.map(e=>({id:e.id,title:e.title||'',eventType:e.event_type,storeId:e.store_id,productId:e.product_id||null,startsAt:e.starts_at,sourceType:e.source_type,confidence:e.confidence,price:e.price==null?null:Number(e.price),purchaseRules:e.purchase_rules||'',notes:e.notes||'',createdBy:e.created_by||null,createdAt:e.created_at||null,updatedAt:e.updated_at||null,deletedAt:e.deleted_at||null}));
   const mappedDropWatches=dropWatches.map(w=>({id:w.id,dropEventId:w.drop_event_id,memberId:w.member_id}));
   return {version:1.9,stores:stores.map(mapStore),products:products.map(mapProduct),reports:mappedReports,members,savedFilters,indicators:mappedIndicators,invites,changeLog,dropEvents:mappedDropEvents,dropWatches:mappedDropWatches,settings:baseSettings};
 }
@@ -301,6 +301,9 @@ export async function setReportFeedback(reportId,memberId,feedback){const {error
 
 export async function createDropEvent(e){const {data,error}=await supabase.from('drop_events').insert({event_type:e.eventType,store_id:e.storeId,product_id:e.productId||null,starts_at:e.startsAt,source_type:e.sourceType,confidence:e.confidence,price:e.price,purchase_rules:e.purchaseRules||null,notes:e.notes||null,created_by:(await supabase.auth.getUser()).data.user?.id}).select().single();if(error)throw error;return data}
 export async function toggleDropWatch(dropEventId,memberId){const {data,error}=await supabase.from('drop_watches').select('id').eq('drop_event_id',dropEventId).eq('member_id',memberId).maybeSingle();if(error)throw error;if(data?.id){const {error:e}=await supabase.from('drop_watches').delete().eq('id',data.id);if(e)throw e}else{const {error:e}=await supabase.from('drop_watches').insert({drop_event_id:dropEventId,member_id:memberId});if(e)throw e}}
+export async function deleteDropEvent(id){const {error}=await supabase.from('drop_events').update({deleted_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',id);if(error)throw error}
+export async function restoreDropEvent(id){const {error}=await supabase.from('drop_events').update({deleted_at:null,updated_at:new Date().toISOString()}).eq('id',id);if(error)throw error}
+export async function permanentDeleteDropEvent(id){const {error}=await supabase.rpc('admin_permanent_delete_drop_event',{p_drop_event_id:id});if(error)throw error}
 export async function permanentDeleteReport(id){const {error}=await supabase.rpc('admin_permanent_delete_report',{p_report_id:id});if(error)throw error}
 export async function permanentDeleteChangeLog(id){const {error}=await supabase.rpc('admin_permanent_delete_change_log',{p_log_id:id});if(error)throw error}
 
