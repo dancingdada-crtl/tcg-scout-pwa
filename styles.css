@@ -164,3 +164,14 @@ main{width:min(100%,720px);margin:0 auto;padding-bottom:86px}
 /* Keep each invisible indicator checkbox inside its own label hit-area. */
 .indicator-choice{position:relative;display:block}
 .indicator-choice input{position:absolute;opacity:0;width:1px;height:1px;left:0;top:0;pointer-events:none}
+
+/* V2.0.4 — compact Members ranking layout */
+.ranking-row{grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;padding:14px 0;min-height:72px}
+.ranking-row>div:nth-child(2){min-width:0;align-self:center}
+.ranking-row>div:nth-child(2)>b{display:block;font-size:16px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ranking-row>div:nth-child(2)>small{display:block;margin-top:5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ranking-row .avatar{align-self:center}
+.rank-stats{min-width:50px;text-align:right;align-self:center}
+.rank-stats>b{display:block;font-size:18px;line-height:1.05}
+.rank-stats small{margin-top:4px!important;white-space:nowrap}
+@media(max-width:380px){.ranking-row{grid-template-columns:40px minmax(0,1fr) auto;gap:9px}.ranking-row .avatar{width:40px;height:40px}.ranking-row>div:nth-child(2)>b{font-size:15px}.ranking-row>div:nth-child(2)>small{font-size:9px}.rank-stats{min-width:42px}}

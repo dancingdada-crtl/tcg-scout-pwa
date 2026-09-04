@@ -2,7 +2,7 @@ import { GEOAPIFY_API_KEY } from './geoapify-config.js';
 import { backendConfigured, getAuthSession, onAuthStateChange, signUpWithInvite, sendPasswordReset, validateInviteCode, createInviteCode, revokeInviteCode, signInWithPassword, updatePassword, signOut as backendSignOut, recordLogin, recordSession, loadSharedData, createReport, createStore, createProduct, saveAnalytics as backendSaveAnalytics, uploadProfileImage, updateMyProfile, updateRankingTiers, setMemberEnabled, updateStore, deleteStore, updateProduct, deleteProduct, updateReport, deleteReport, saveIndicator, deleteIndicator, setReportFeedback, createDropEvent, toggleDropWatch, deleteDropEvent, restoreDropEvent, permanentDeleteDropEvent, permanentDeleteReport, permanentDeleteChangeLog, subscribeRealtime } from './backend.js';
 
 const KEY='tcg-scout-v1-data';
-const APP_VERSION='2.0.3';
+const APP_VERSION='2.0.4';
 const iso=(d=new Date())=>d.toISOString();
 const uid=()=>crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2);
 const esc=s=>String(s??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[m]));
@@ -506,5 +506,21 @@ async function init(){
   });
  }catch(err){console.error(err);loginNotice=err?.message||'Could not start ChaseDex';appReady=true;render();}
 }
-if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js'));
+if('serviceWorker' in navigator){
+  window.addEventListener('load',async()=>{
+    const originalController=navigator.serviceWorker.controller;
+    let reloading=false;
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{
+      if(!originalController||reloading)return;
+      if(sessionStorage.getItem('chasedex-sw-reload')==='2.0.4')return;
+      reloading=true;
+      sessionStorage.setItem('chasedex-sw-reload','2.0.4');
+      location.reload();
+    });
+    try{
+      const registration=await navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'});
+      await registration.update();
+    }catch(err){console.warn('ChaseDex update check failed',err)}
+  });
+}
 applyBranding();render();init();
