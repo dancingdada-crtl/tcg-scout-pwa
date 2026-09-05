@@ -1,4 +1,4 @@
-const CACHE='chasedex-v2-1-0';
+const CACHE='chasedex-v2-2-0';
 const PREFIX='chasedex-';
 const ASSETS=['./','./index.html','./styles.css','./app.js','./backend.js','./supabase-config.js','./geoapify-config.js','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
 const FRESH_PATHS=new Set(['/','/index.html','/styles.css','/app.js','/backend.js']);
@@ -15,7 +15,7 @@ self.addEventListener('activate',event=>{
     await Promise.all(old.map(name=>caches.delete(name)));
     await self.clients.claim();
     // V2.0.3 had no controllerchange reload listener. If an older ChaseDex
-    // cache existed, refresh open app windows once so they load V2.0.4.
+    // cache existed, refresh open app windows once so they load the newly activated release.
     if(old.length){
       const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
       await Promise.all(windows.map(client=>client.navigate(client.url).catch(()=>undefined)));
