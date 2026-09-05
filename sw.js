@@ -1,4 +1,4 @@
-const CACHE='chasedex-v2-2-0';
+const CACHE='chasedex-v2-3-0';
 const PREFIX='chasedex-';
 const ASSETS=['./','./index.html','./styles.css','./app.js','./backend.js','./supabase-config.js','./geoapify-config.js','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
 const FRESH_PATHS=new Set(['/','/index.html','/styles.css','/app.js','/backend.js']);
