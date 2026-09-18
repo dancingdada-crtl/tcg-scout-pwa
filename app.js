@@ -2,7 +2,7 @@ import { GEOAPIFY_API_KEY } from './geoapify-config.js';
 import { backendConfigured, getAuthSession, onAuthStateChange, signUpWithInvite, sendPasswordReset, validateInviteCode, createInviteCode, revokeInviteCode, signInWithPassword, updatePassword, signOut as backendSignOut, recordLogin, recordSession, loadSharedData, createReport, uploadReportPhoto, getReportPhotoUrl, createStore, createProduct, createTcgCategory, updateTcgCategory, deleteTcgCategory, saveAnalytics as backendSaveAnalytics, uploadProfileImage, updateMyProfile, updateRankingTiers, setMemberEnabled, updateStore, deleteStore, updateProduct, deleteProduct, updateReport, deleteReport, saveIndicator, deleteIndicator, setReportFeedback, createDropEvent, toggleDropWatch, deleteDropEvent, restoreDropEvent, permanentDeleteDropEvent, permanentDeleteReport, permanentDeleteChangeLog, subscribeRealtime, loadNotifications, loadNotificationPreferences, saveNotificationPreferences, savePushSubscription, deletePushSubscription, markNotificationRead, markAllNotificationsRead, subscribeNotifications } from './backend.js';
 
 const KEY='tcg-scout-v1-data';
-const APP_VERSION='2.6.0';
+const APP_VERSION='2.6.1';
 const iso=(d=new Date())=>d.toISOString();
 const uid=()=>crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2);
 const esc=s=>String(s??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[m]));
@@ -394,7 +394,7 @@ document.addEventListener('click',async e=>{
   if(a==='edit-category'){state.sheet='category-edit';state.editId=el.dataset.id;render();return}
   if(a==='save-category'){const name=document.getElementById('category-name')?.value.trim(),emoji=document.getElementById('category-emoji')?.value.trim()||'';if(!name)return toast('Add a category name');await updateTcgCategory(el.dataset.id,{name,emoji,active:true});await refreshShared();state.sheet=null;toast('TCG category updated');return}
   if(a==='delete-category'){if(!confirm('Disable this TCG category? Historical reports will be preserved.'))return;await deleteTcgCategory(el.dataset.id);await refreshShared();state.sheet=null;toast('TCG category disabled');return}
-  if(a==='add-category'){const name=document.getElementById('category-name')?.value.trim(),emoji=document.getElementById('category-emoji')?.value.trim()||'',m=currentMember();if(!name||!m)return toast('Add a category name');await createTcgCategory({name,emoji},m.id);await refreshShared();state.sheet=null;toast('TCG category added');return}
+  if(a==='add-category'){const name=document.getElementById('category-name')?.value.trim(),emoji=document.getElementById('category-emoji')?.value.trim()||'',m=currentMember();if(!name||!m)return toast('Add a category name');try{await createTcgCategory({name,emoji});}catch(err){console.error(err);toast(err?.message||'Could not add TCG category');return;}await refreshShared();state.sheet=null;toast('TCG category added');return}
   if(a==='open-stores'){if(!isMember())return toast('Members only');state.view='products';state.sheet=null;render();return}
   if(a==='activity-metric'){state.activityMetric=el.dataset.metric;render();return}
   if(a==='open-product-add'){if(!isMember())return toast('Members only');state.sheet='product-add';render();return}
@@ -571,9 +571,9 @@ if('serviceWorker' in navigator){
     let reloading=false;
     navigator.serviceWorker.addEventListener('controllerchange',()=>{
       if(!originalController||reloading)return;
-      if(sessionStorage.getItem('chasedex-sw-reload')==='2.6.0')return;
+      if(sessionStorage.getItem('chasedex-sw-reload')==='2.6.1')return;
       reloading=true;
-      sessionStorage.setItem('chasedex-sw-reload','2.6.0');
+      sessionStorage.setItem('chasedex-sw-reload','2.6.1');
       location.reload();
     });
     try{
