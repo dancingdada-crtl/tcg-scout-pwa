@@ -151,9 +151,10 @@ export async function loadSharedData(session=null){
   const meProfile=profileRows[0];
   if(!meProfile) throw new Error('Your member profile has not been created yet.');
 
-  const [stores,products,reports,saved,tiers,profiles,rankings,feedback,indicators,reportIndicators]=await Promise.all([
+  const [stores,products,categories,reports,saved,tiers,profiles,rankings,feedback,indicators,reportIndicators,reportCategories,reportPhotos]=await Promise.all([
     q(supabase.from('stores').select('*').order('name')),
     q(supabase.from('products').select('*').order('name')),
+    q(supabase.from('tcg_categories').select('*').order('name')),
     q(supabase.from('reports').select('*').order('occurred_at',{ascending:false}).limit(3000)),
     q(supabase.from('saved_analytics').select('*').eq('owner_id',session.user.id).order('created_at')),
     q(supabase.from('ranking_tiers').select('*').order('min_points')),
@@ -161,7 +162,9 @@ export async function loadSharedData(session=null){
     q(supabase.from('member_contribution_rankings').select('*')),
     q(supabase.from('report_feedback').select('*')),
     q(supabase.from('report_indicators_catalog').select('*').order('sort_order')),
-    q(supabase.from('report_indicator_values').select('*'))
+    q(supabase.from('report_indicator_values').select('*')),
+    q(supabase.from('report_tcg_categories').select('*')),
+    q(supabase.from('report_photos').select('*').order('created_at',{ascending:false}))
   ]);
 
   let adminActivity=[];
@@ -191,7 +194,10 @@ export async function loadSharedData(session=null){
   for(const f of feedback){const x=feedbackByReport.get(f.report_id)||{confirmations:0,disputes:0,myFeedback:null};if(f.feedback==='confirm')x.confirmations++;else if(f.feedback==='dispute')x.disputes++;if(f.member_id===session.user.id)x.myFeedback=f.feedback;feedbackByReport.set(f.report_id,x)}
   const indicatorMap=new Map();
   for(const ri of reportIndicators){const a=indicatorMap.get(ri.report_id)||[];a.push(ri.indicator_id);indicatorMap.set(ri.report_id,a)}
-  const mappedReports=reports.map(mapReport).map(r=>({...r,indicatorIds:indicatorMap.get(r.id)||[],...(feedbackByReport.get(r.id)||{confirmations:0,disputes:0,myFeedback:null})}));
+  const categoryMap=new Map();
+  for(const rc of reportCategories){const a=categoryMap.get(rc.report_id)||[];a.push(rc.category_id);categoryMap.set(rc.report_id,a)}
+  const photoByReport=new Map(reportPhotos.map(p=>[p.report_id,{id:p.id,path:p.storage_path,bytes:p.bytes||0,width:p.width||null,height:p.height||null,mimeType:p.mime_type||'',createdAt:p.created_at,expiresAt:p.expires_at}]));
+  const mappedReports=reports.map(mapReport).map(r=>({...r,indicatorIds:indicatorMap.get(r.id)||[],categoryIds:categoryMap.get(r.id)||[],photo:photoByReport.get(r.id)||null,...(feedbackByReport.get(r.id)||{confirmations:0,disputes:0,myFeedback:null})}));
   const savedFilters=saved.map(s=>({id:s.id,name:s.name,ownerId:s.owner_id,...(s.config_json||{})}));
   const mappedIndicators=indicators.map(i=>({id:i.id,label:i.label,emoji:i.emoji,active:i.active!==false,sortOrder:Number(i.sort_order||0)}));
   let changeLog=[];
@@ -203,20 +209,30 @@ export async function loadSharedData(session=null){
   const invites=inviteRows.map(i=>({id:i.id,code:i.code,label:i.invitee_label||'',createdBy:i.created_by,creatorName:memberNames.get(i.created_by)||'Member',createdAt:i.created_at,expiresAt:i.expires_at,redeemedAt:i.redeemed_at,redeemedEmail:i.redeemed_email||'',revokedAt:i.revoked_at}));
   const mappedDropEvents=dropEvents.map(e=>({id:e.id,title:e.title||'',eventType:e.event_type,storeId:e.store_id,productId:e.product_id||null,startsAt:e.starts_at,sourceType:e.source_type,confidence:e.confidence,price:e.price==null?null:Number(e.price),purchaseRules:e.purchase_rules||'',notes:e.notes||'',createdBy:e.created_by||null,createdAt:e.created_at||null,updatedAt:e.updated_at||null,deletedAt:e.deleted_at||null}));
   const mappedDropWatches=dropWatches.map(w=>({id:w.id,dropEventId:w.drop_event_id,memberId:w.member_id}));
-  return {version:1.9,stores:stores.map(mapStore),products:products.map(mapProduct),reports:mappedReports,members,savedFilters,indicators:mappedIndicators,invites,changeLog,dropEvents:mappedDropEvents,dropWatches:mappedDropWatches,settings:baseSettings};
+  return {version:1.9,stores:stores.map(mapStore),products:products.map(mapProduct),categories:categories.map(c=>({id:c.id,name:c.name,emoji:c.emoji||'',active:c.active!==false,createdBy:c.created_by||null})),reports:mappedReports,members,savedFilters,indicators:mappedIndicators,invites,changeLog,dropEvents:mappedDropEvents,dropWatches:mappedDropWatches,settings:baseSettings};
 }
 
 export async function createReport(r){
   const payload={store_id:r.storeId,product_id:r.productId||null,drop_event_id:r.dropEventId||null,member_id:r.memberId,status:r.status,time_bucket:r.period,people_lining_up:false,possible_restock:false,restock_evidence:false,source_type:sourceToDb(r.source),source_detail:r.sourceDetail||null,notes:r.notes||null,price:r.price,condition:conditionToDb(r.condition),occurred_at:r.occurredAt,occurred_at_is_approx:!!r.occurredApprox};
   const {data,error}=await supabase.from('reports').insert(payload).select().single();if(error)throw error;
   if(r.indicatorIds?.length){const {error:ie}=await supabase.from('report_indicator_values').insert(r.indicatorIds.map(indicator_id=>({report_id:data.id,indicator_id})));if(ie)throw ie}
-  return {...mapReport(data),indicatorIds:r.indicatorIds||[]};
+  if(r.categoryIds?.length){const {error:ce}=await supabase.from('report_tcg_categories').insert(r.categoryIds.map(category_id=>({report_id:data.id,category_id})));if(ce)throw ce}
+  return {...mapReport(data),indicatorIds:r.indicatorIds||[],categoryIds:r.categoryIds||[]};
 }
 export async function createStore(s,userId){
   const payload={name:s.name,chain:s.chain||'Member added',address:s.address||null,city:s.city||null,state:s.state||null,postal_code:s.postalCode||null,latitude:s.lat,longitude:s.lng,store_type:s.storeType||'Retail Chain',created_by:userId};
   const {data,error}=await supabase.from('stores').insert(payload).select().single();if(error)throw error;return mapStore(data);
 }
 export async function setStoreArchived(id,archived){const {error}=await supabase.rpc('set_store_archived',{p_store_id:id,p_archived:archived});if(error)throw error;}
+
+
+export async function uploadReportPhoto(reportId,storeId,blob,meta={}){const {data:{user}}=await supabase.auth.getUser();if(!user)throw new Error('Sign in required');if(blob.size>262144)throw new Error('Photo is larger than 250 KB after compression');const ext=blob.type==='image/webp'?'webp':'jpg',path=`${user.id}/${reportId}-${Date.now()}.${ext}`;const {error:ue}=await supabase.storage.from('report-photos').upload(path,blob,{contentType:blob.type,cacheControl:'86400',upsert:false});if(ue)throw ue;const {error:me}=await supabase.from('report_photos').insert({report_id:reportId,store_id:storeId,member_id:user.id,storage_path:path,bytes:blob.size,width:meta.width||null,height:meta.height||null,mime_type:blob.type});if(me){await supabase.storage.from('report-photos').remove([path]);throw me}return path;}
+export async function getReportPhotoUrl(path){const {data,error}=await supabase.storage.from('report-photos').createSignedUrl(path,300);if(error)throw error;return data.signedUrl;}
+
+export async function createTcgCategory(c,userId){const {data,error}=await supabase.from('tcg_categories').insert({name:c.name,emoji:c.emoji||null,created_by:userId}).select().single();if(error)throw error;return {id:data.id,name:data.name,emoji:data.emoji||'',active:data.active!==false};}
+export async function updateTcgCategory(id,c){const {error}=await supabase.from('tcg_categories').update({name:c.name,emoji:c.emoji||null,active:c.active!==false,updated_at:new Date().toISOString()}).eq('id',id);if(error)throw error;}
+export async function deleteTcgCategory(id){const {error}=await supabase.from('tcg_categories').update({active:false,updated_at:new Date().toISOString()}).eq('id',id);if(error)throw error;}
+
 export async function createProduct(p,userId){const payload={name:p.name,tcg:p.tcg,set_name:p.setName||null,sku:p.sku||null,upc:p.upc||null,created_by:userId};const {data,error}=await supabase.from('products').insert(payload).select().single();if(error)throw error;return mapProduct(data);}
 export async function setProductArchived(id,archived){const {error}=await supabase.rpc('set_product_archived',{p_product_id:id,p_archived:archived});if(error)throw error;}
 export async function saveAnalytics(name,config,userId){const {data,error}=await supabase.from('saved_analytics').insert({owner_id:userId,name,config_json:config}).select().single();if(error)throw error;return {id:data.id,name:data.name,ownerId:data.owner_id,...(data.config_json||{})};}
@@ -290,6 +306,8 @@ export async function updateReport(id,r){
   const {error}=await supabase.from('reports').update(payload).eq('id',id);if(error)throw error;
   const {error:de}=await supabase.from('report_indicator_values').delete().eq('report_id',id);if(de)throw de;
   if(r.indicatorIds?.length){const {error:ie}=await supabase.from('report_indicator_values').insert(r.indicatorIds.map(indicator_id=>({report_id:id,indicator_id})));if(ie)throw ie}
+  const {error:cd}=await supabase.from('report_tcg_categories').delete().eq('report_id',id);if(cd)throw cd;
+  if(r.categoryIds?.length){const {error:ce}=await supabase.from('report_tcg_categories').insert(r.categoryIds.map(category_id=>({report_id:id,category_id})));if(ce)throw ce}
 }
 export async function deleteReport(id){const {error}=await supabase.from('reports').update({deleted_at:new Date().toISOString()}).eq('id',id);if(error)throw error;}
 export async function saveIndicator(i){
