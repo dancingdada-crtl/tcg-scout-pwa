@@ -204,3 +204,9 @@ main{width:min(100%,720px);margin:0 auto;padding-bottom:86px}
 /* v2.6.0 TCG category reporting */
 .tcg-multi-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.tcg-multi-choice{display:block}.tcg-multi-choice input{position:absolute;opacity:0;pointer-events:none}.tcg-multi-choice span{display:flex;align-items:center;justify-content:center;min-height:44px;padding:9px 10px;border:1px solid var(--border,#30363d);border-radius:12px;background:var(--card,#151a20);font-weight:700;text-align:center}.tcg-multi-choice input:checked+span{border-color:#39d98a;box-shadow:0 0 0 1px #39d98a inset}.two-status{grid-template-columns:repeat(2,minmax(0,1fr))}
 .report-photo-field{margin-top:12px}.photo-capture-button{display:flex;align-items:center;justify-content:center;min-height:48px;border:1px dashed var(--border,#3a424c);border-radius:12px;font-weight:800;cursor:pointer}.photo-capture-button input{position:absolute;opacity:0;width:1px;height:1px}.photo-compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.photo-compare-grid figure{margin:0}.photo-compare-grid img{width:100%;max-height:55vh;object-fit:contain;border-radius:12px;background:#0b0e12}.photo-compare-grid figcaption{font-size:12px;margin-bottom:6px}
+
+/* v2.6.3 retained report photo preview */
+.report-photo-preview{display:grid;grid-template-columns:72px 1fr auto;gap:10px;align-items:center;margin:8px 0 10px;padding:10px;border:1px solid var(--line,#d9dde5);border-radius:14px}
+.report-photo-preview img{width:72px;height:72px;object-fit:cover;border-radius:10px}
+.report-photo-preview small{display:block;margin-top:3px}
+.btn[disabled]{opacity:.65;pointer-events:none}
