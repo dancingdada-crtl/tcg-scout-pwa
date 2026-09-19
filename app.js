@@ -1,8 +1,8 @@
 import { GEOAPIFY_API_KEY } from './geoapify-config.js';
-import { backendConfigured, getAuthSession, onAuthStateChange, signUpWithInvite, sendPasswordReset, validateInviteCode, createInviteCode, revokeInviteCode, signInWithPassword, updatePassword, signOut as backendSignOut, recordLogin, recordSession, loadSharedData, createReport, uploadReportPhoto, getReportPhotoUrl, createStore, createProduct, createTcgCategory, updateTcgCategory, deleteTcgCategory, saveAnalytics as backendSaveAnalytics, uploadProfileImage, updateMyProfile, updateRankingTiers, setMemberEnabled, updateStore, deleteStore, updateProduct, deleteProduct, updateReport, deleteReport, saveIndicator, deleteIndicator, setReportFeedback, createDropEvent, toggleDropWatch, deleteDropEvent, restoreDropEvent, permanentDeleteDropEvent, permanentDeleteReport, permanentDeleteChangeLog, subscribeRealtime, loadNotifications, loadNotificationPreferences, saveNotificationPreferences, savePushSubscription, deletePushSubscription, markNotificationRead, markAllNotificationsRead, subscribeNotifications } from './backend.js';
+import { backendConfigured, getAuthSession, onAuthStateChange, signUpWithInvite, sendPasswordReset, validateInviteCode, createInviteCode, revokeInviteCode, signInWithPassword, updatePassword, signOut as backendSignOut, recordLogin, recordSession, loadSharedData, createReport, uploadReportPhoto, getReportPhotoUrl, createStore, createProduct, createTcgCategory, updateTcgCategory, deleteTcgCategory, loadTcgCategories, saveAnalytics as backendSaveAnalytics, uploadProfileImage, updateMyProfile, updateRankingTiers, setMemberEnabled, updateStore, deleteStore, updateProduct, deleteProduct, updateReport, deleteReport, saveIndicator, deleteIndicator, setReportFeedback, createDropEvent, toggleDropWatch, deleteDropEvent, restoreDropEvent, permanentDeleteDropEvent, permanentDeleteReport, permanentDeleteChangeLog, subscribeRealtime, loadNotifications, loadNotificationPreferences, saveNotificationPreferences, savePushSubscription, deletePushSubscription, markNotificationRead, markAllNotificationsRead, subscribeNotifications } from './backend.js';
 
 const KEY='tcg-scout-v1-data';
-const APP_VERSION='2.6.1';
+const APP_VERSION='2.6.2';
 const iso=(d=new Date())=>d.toISOString();
 const uid=()=>crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2);
 const esc=s=>String(s??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[m]));
@@ -352,6 +352,11 @@ async function refreshShared({quiet=true}={}){
  if(!backendConfigured)return;
  try{data=await loadSharedData(authSession);data.indicators??=[];data.changeLog??=[];save();applyBranding();render();if(!quiet)toast('Updated')}catch(err){console.error(err);if(!quiet)toast(err.message||'Could not refresh')}
 }
+async function refreshTcgCategories(){
+ if(!backendConfigured)return;
+ const categories=await loadTcgCategories();
+ data.categories=categories;save();render();
+}
 function scheduleRefresh(){clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>refreshShared(),250)}
 
 document.addEventListener('click',async e=>{
@@ -392,9 +397,9 @@ document.addEventListener('click',async e=>{
   if(a==='close-sheet'){if(state.sheet==='report'&&state.sheetBack==='store'){state.sheet='store';state.sheetBack=null}else{state.sheet=null;state.sheetBack=null;history.replaceState(null,'',location.pathname+location.search)}render();return}
   if(a==='open-category-add'){if(!isMember())return toast('Members only');state.sheet='category-add';render();return}
   if(a==='edit-category'){state.sheet='category-edit';state.editId=el.dataset.id;render();return}
-  if(a==='save-category'){const name=document.getElementById('category-name')?.value.trim(),emoji=document.getElementById('category-emoji')?.value.trim()||'';if(!name)return toast('Add a category name');await updateTcgCategory(el.dataset.id,{name,emoji,active:true});await refreshShared();state.sheet=null;toast('TCG category updated');return}
-  if(a==='delete-category'){if(!confirm('Disable this TCG category? Historical reports will be preserved.'))return;await deleteTcgCategory(el.dataset.id);await refreshShared();state.sheet=null;toast('TCG category disabled');return}
-  if(a==='add-category'){const name=document.getElementById('category-name')?.value.trim(),emoji=document.getElementById('category-emoji')?.value.trim()||'',m=currentMember();if(!name||!m)return toast('Add a category name');try{await createTcgCategory({name,emoji});}catch(err){console.error(err);toast(err?.message||'Could not add TCG category');return;}await refreshShared();state.sheet=null;toast('TCG category added');return}
+  if(a==='save-category'){const name=document.getElementById('category-name')?.value.trim(),emoji=document.getElementById('category-emoji')?.value.trim()||'';if(!name)return toast('Add a category name');await updateTcgCategory(el.dataset.id,{name,emoji,active:true});await refreshTcgCategories();state.sheet=null;toast('TCG category updated');return}
+  if(a==='delete-category'){if(!confirm('Disable this TCG category? Historical reports will be preserved.'))return;await deleteTcgCategory(el.dataset.id);await refreshTcgCategories();state.sheet=null;toast('TCG category disabled');return}
+  if(a==='add-category'){const name=document.getElementById('category-name')?.value.trim(),emoji=document.getElementById('category-emoji')?.value.trim()||'',m=currentMember();if(!name||!m)return toast('Add a category name');try{await createTcgCategory({name,emoji});}catch(err){console.error(err);toast(err?.message||'Could not add TCG category');return;}try{await refreshTcgCategories();}catch(err){console.error(err);toast('Category saved, but list refresh failed: '+(err?.message||'unknown error'));return;}state.manageKind='categories';state.sheet=null;toast('TCG category added');return}
   if(a==='open-stores'){if(!isMember())return toast('Members only');state.view='products';state.sheet=null;render();return}
   if(a==='activity-metric'){state.activityMetric=el.dataset.metric;render();return}
   if(a==='open-product-add'){if(!isMember())return toast('Members only');state.sheet='product-add';render();return}
@@ -571,9 +576,9 @@ if('serviceWorker' in navigator){
     let reloading=false;
     navigator.serviceWorker.addEventListener('controllerchange',()=>{
       if(!originalController||reloading)return;
-      if(sessionStorage.getItem('chasedex-sw-reload')==='2.6.1')return;
+      if(sessionStorage.getItem('chasedex-sw-reload')==='2.6.2')return;
       reloading=true;
-      sessionStorage.setItem('chasedex-sw-reload','2.6.1');
+      sessionStorage.setItem('chasedex-sw-reload','2.6.2');
       location.reload();
     });
     try{
