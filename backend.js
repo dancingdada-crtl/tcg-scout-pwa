@@ -240,6 +240,7 @@ export async function setStoreArchived(id,archived){const {error}=await supabase
 
 export async function uploadReportPhoto(reportId,storeId,blob,meta={}){const {data:{user}}=await supabase.auth.getUser();if(!user)throw new Error('Sign in required');if(blob.size>262144)throw new Error('Photo is larger than 250 KB after compression');const ext=blob.type==='image/webp'?'webp':'jpg',path=`${user.id}/${reportId}-${Date.now()}.${ext}`;const {error:ue}=await supabase.storage.from('report-photos').upload(path,blob,{contentType:blob.type,cacheControl:'86400',upsert:false});if(ue)throw ue;const {error:me}=await supabase.from('report_photos').insert({report_id:reportId,store_id:storeId,member_id:user.id,storage_path:path,bytes:blob.size,width:meta.width||null,height:meta.height||null,mime_type:blob.type});if(me){await supabase.storage.from('report-photos').remove([path]);throw me}return path;}
 export async function getReportPhotoUrl(path){const {data,error}=await supabase.storage.from('report-photos').createSignedUrl(path,300);if(error)throw error;return data.signedUrl;}
+export async function downloadReportPhoto(path){if(!supabase)throw new Error('Supabase is not configured.');if(!path)throw new Error('Photo path is missing.');const {data,error}=await supabase.storage.from('report-photos').download(path);if(error)throw new Error(`Photo download failed: ${error.message}`);if(!data)throw new Error('Photo file was not returned.');return data;}
 
 
 export async function loadTcgCategories(){
