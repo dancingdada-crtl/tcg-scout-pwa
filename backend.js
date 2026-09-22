@@ -213,10 +213,22 @@ export async function loadSharedData(session=null){
 }
 
 export async function createReport(r){
-  const payload={store_id:r.storeId,product_id:r.productId||null,drop_event_id:r.dropEventId||null,member_id:r.memberId,status:r.status,time_bucket:r.period,people_lining_up:false,possible_restock:false,restock_evidence:false,source_type:sourceToDb(r.source),source_detail:r.sourceDetail||null,notes:r.notes||null,price:r.price,condition:conditionToDb(r.condition),occurred_at:r.occurredAt,occurred_at_is_approx:!!r.occurredApprox};
-  const {data,error}=await supabase.from('reports').insert(payload).select().single();if(error)throw error;
-  if(r.indicatorIds?.length){const {error:ie}=await supabase.from('report_indicator_values').insert(r.indicatorIds.map(indicator_id=>({report_id:data.id,indicator_id})));if(ie)throw ie}
-  if(r.categoryIds?.length){const {error:ce}=await supabase.from('report_tcg_categories').insert(r.categoryIds.map(category_id=>({report_id:data.id,category_id})));if(ce)throw ce}
+  if(!supabase)throw new Error('Supabase is not configured.');
+  if(!r?.storeId)throw new Error('Store is required.');
+  if(!r?.categoryIds?.length)throw new Error('At least one TCG category is required.');
+  const payload={store_id:r.storeId,product_id:null,drop_event_id:r.dropEventId||null,member_id:r.memberId,status:r.status,time_bucket:r.period,people_lining_up:false,possible_restock:false,restock_evidence:false,source_type:sourceToDb(r.source),source_detail:r.sourceDetail||null,notes:r.notes||null,price:null,condition:null,occurred_at:r.occurredAt,occurred_at_is_approx:!!r.occurredApprox};
+  const {data,error}=await supabase.from('reports').insert(payload).select().single();
+  if(error)throw new Error(`Report insert failed: ${error.message}`);
+  try{
+    if(r.indicatorIds?.length){const {error:ie}=await supabase.from('report_indicator_values').insert(r.indicatorIds.map(indicator_id=>({report_id:data.id,indicator_id})));if(ie)throw new Error(`Indicator link failed: ${ie.message}`)}
+    const {error:ce}=await supabase.from('report_tcg_categories').insert(r.categoryIds.map(category_id=>({report_id:data.id,category_id})));
+    if(ce)throw new Error(`TCG category link failed: ${ce.message}`);
+  }catch(linkErr){
+    // Do not leave a report that appears category-less if its required links fail.
+    const {error:cleanupError}=await supabase.from('reports').delete().eq('id',data.id);
+    if(cleanupError)console.error('Could not roll back incomplete report',cleanupError);
+    throw linkErr;
+  }
   return {...mapReport(data),indicatorIds:r.indicatorIds||[],categoryIds:r.categoryIds||[]};
 }
 export async function createStore(s,userId){
